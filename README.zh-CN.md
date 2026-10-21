@@ -1,6 +1,6 @@
 # Multi-Agent Protocol（多 agent 协作协议）
 
-[English](README.md)
+[English](README.md) · [Changelog](CHANGELOG.md)
 
 这是一套给多个 AI 编程 agent（Claude Code、Codex 等）用的治理和发布协议，适用于它们为同一位人类负责人（owner）并行开发同一个项目的场景。
 
@@ -25,7 +25,11 @@
   ```
   插件提供 `lead`、`line`、`release`、`coordinate` 四个技能，以及 `builder` 和只读的 `reviewer` 两个子 agent。
 - **任何 agent：** 把 [adapters/BOOTSTRAP.md](adapters/BOOTSTRAP.md) 里的提示词贴给它，它会读协议、问你角色分工和长期授权、在 `AGENTS.md` 里加上规则、建好协调分支。Codex 的注意事项见 [adapters/codex.md](adapters/codex.md)。
-- **手动：** 把 [adapters/AGENTS.md.snippet](adapters/AGENTS.md.snippet) 复制进项目的 `AGENTS.md`，再把 `scripts/` 和 `templates/` 复制进项目。
+- **手动：** clone 本仓库后运行 `scripts/install.sh <你的项目>`，它把协议、脚本和模板复制到项目的 `tools/multi-agent-protocol/`，以后重新运行即可更新；再把规则片段贴进项目的 `AGENTS.md`。
+
+可以从**最小配置**开始（一个负责人、两三个会话），只需遵守批准、隔离、交接和汇报几条规则；会话、机器、工具或负责人变多时，再升级到**完整配置**（见 PROTOCOL.md 12.1）。多个负责人共同管理时，按 PROTOCOL.md 3.5 在角色表里写明每个人的批准范围。
+
+插件可以在每次会话开始时自动列出未读消息：在该工作目录运行一次 `/multi-agent-protocol:coordinate set-line <线名>` 即可开启，不设置就什么都不做。
 
 角色是职责，不是进程：同一个角色可以开多个会话并行（多条开发线、多个 builder 和 reviewer；多个 lead 按区域分工；多个发布会话通过 `release-main` 认领轮流推进主分支），项目也可以自己加角色（比如测试、文档、安全审计），但批准权只在负责人，只有发布角色能推进主分支。见 PROTOCOL.md 2.1。
 

@@ -1,6 +1,8 @@
 # Multi-Agent Protocol
 
 [![check](https://github.com/gao-xh/multi-agent-protocol/actions/workflows/check.yml/badge.svg)](https://github.com/gao-xh/multi-agent-protocol/actions/workflows/check.yml)
+[![version](https://img.shields.io/github/v/tag/gao-xh/multi-agent-protocol?label=version&sort=semver)](CHANGELOG.md)
+[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 [中文说明](README.zh-CN.md)
 
@@ -46,26 +48,45 @@ and the rule that prevents each one.
 
 ```mermaid
 flowchart TB
-    owner(["Owner (human)<br/>decides and approves"])
-    lead["Lead<br/>architecture, contracts, review"]
-    lineA["Line A<br/>own branch and worktree"]
-    lineB["Line B<br/>own branch and worktree"]
-    release["Release<br/>verify, deploy, advance main"]
-    builder["Builder<br/>short-lived, fresh worktree"]
-    reviewer["Reviewer<br/>short-lived, read-only"]
-    board[("coordination branch<br/>status · messages · claims · decisions")]
+    owner(["<b>Owner</b><br/>human<br/>decides and approves"])
 
-    owner <-->|requests, approvals| lead
-    owner -.->|approvals, asked directly| release
-    lead --> builder
-    lineA --> builder
-    lead --> reviewer
-    lead <--> board
-    lineA <--> board
-    lineB <--> board
-    release <--> board
-    board -->|release-request| release
-    release -->|released / returned| board
+    subgraph dev["Development sessions"]
+        direction TB
+        lead["<b>Lead</b><br/>architecture, contracts,<br/>review, integration"]
+        lines["<b>Lines</b><br/>one area each,<br/>running in parallel"]
+    end
+
+    subgraph helpers["Short-lived agents"]
+        direction TB
+        builder["<b>Builder</b><br/>one task, fresh worktree"]
+        reviewer["<b>Reviewer</b><br/>read-only, ranked findings"]
+    end
+
+    board[("<b>coordination branch</b><br/>status, messages,<br/>claims, decisions")]
+    release["<b>Release</b><br/>review, verify,<br/>deploy, record"]
+    main[["<b>main branch</b>"]]
+
+    owner == "requests, approvals" ==> dev
+    dev -- "delegate, review" --> helpers
+    dev <-- "handover, heads-up,<br/>release-request" --> board
+    board <-- "released / returned" --> release
+    owner -. "approvals, asked directly" .-> release
+    release == "verified deploy" ==> main
+
+    classDef ownerNode fill:#fef3c7,stroke:#b45309,stroke-width:2px,color:#1c1917
+    classDef sessionNode fill:#e0f2fe,stroke:#0369a1,stroke-width:1.5px,color:#0c1a26
+    classDef releaseNode fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#052e16
+    classDef helperNode fill:#f4f4f5,stroke:#71717a,stroke-width:1.5px,stroke-dasharray:5 3,color:#18181b
+    classDef boardNode fill:#ede9fe,stroke:#6d28d9,stroke-width:1.5px,color:#1e1b4b
+    classDef mainNode fill:#f0fdf4,stroke:#15803d,stroke-width:2px,color:#052e16
+    class owner ownerNode
+    class lead,lines sessionNode
+    class release releaseNode
+    class builder,reviewer helperNode
+    class board boardNode
+    class main mainNode
+    style dev fill:transparent,stroke:#0369a1,stroke-width:1px,stroke-dasharray:4 4
+    style helpers fill:transparent,stroke:#71717a,stroke-width:1px,stroke-dasharray:4 4
 ```
 
 Roles are responsibilities, not processes. One session may hold several roles in a small
@@ -110,6 +131,11 @@ release requests and their answers are still written to the branch.
 
 ## Three ways to use it
 
+Start small. The **minimal profile** (one owner, two or three sessions) needs only the
+authority, isolation, handover and report rules; the coordination branch and the release
+role come in with the **full profile** when you add more sessions, machines, tools or
+owners ([PROTOCOL.md 12.1](PROTOCOL.md#121-profiles)).
+
 ### 1. Claude Code plugin
 
 ```text
@@ -123,6 +149,14 @@ Then start each session with its role: `/multi-agent-protocol:lead`,
 `reviewer` agents become available for delegation; the reviewer has no edit tools and
 cannot start other agents.
 
+Optional: to have each session start with a summary of its unread messages and active
+claims, give the worktree a line name once. The plugin's SessionStart hook then runs
+`scripts/session-start.sh`; without a line name it does nothing.
+
+```text
+/multi-agent-protocol:coordinate set-line api      # once per worktree; or start with MAP_LINE=api
+```
+
 ### 2. Bootstrap prompt, for any agent
 
 Paste the prompt in [adapters/BOOTSTRAP.md](adapters/BOOTSTRAP.md) into Codex, Claude Code
@@ -131,12 +165,17 @@ table and any standing authorizations, adds the rules snippet to `AGENTS.md`, cr
 coordination branch and publishes its status. For Codex specifics (sandbox network access
 for `git push`, `codex exec`, polling on a timer) see [adapters/codex.md](adapters/codex.md).
 
-### 3. Copy the snippet
+### 3. Install into the project by hand
 
-Copy [adapters/AGENTS.md.snippet](adapters/AGENTS.md.snippet) into your project's
-`AGENTS.md` (Codex reads it; point `CLAUDE.md` to it for Claude Code), fill in the table,
-and copy `scripts/` and `templates/` into the project, for example under
-`tools/multi-agent-protocol/`.
+```sh
+git clone https://github.com/gao-xh/multi-agent-protocol
+multi-agent-protocol/scripts/install.sh path/to/your-project   # rerun later to update
+```
+
+This copies the protocol, scripts, templates and the rules snippet into
+`tools/multi-agent-protocol/` and changes nothing else. Then paste the snippet into your
+project's `AGENTS.md` (Codex reads it; point `CLAUDE.md` to it for Claude Code), fill in
+the table, and run `tools/multi-agent-protocol/scripts/init-coordination.sh`.
 
 ## Tests
 
@@ -152,22 +191,9 @@ and macOS, plus ShellCheck and `claude plugin validate --strict`.
 
 ## Related work
 
-This protocol borrows ideas (not text) from these projects. It is meant to sit on top of
-tools like them, not to replace them.
-
-| Project | What it does | What this protocol takes or adds |
-| --- | --- | --- |
-| [OpenMOSS/claude-codex-handoff](https://github.com/OpenMOSS/claude-codex-handoff) | Serverless Claude Code and Codex collaboration in one folder: append-only message streams, lock files, timer wake-ups, cursors advanced only after side effects | Same crash-safe cursor rule (`Last-read`) and cheap timer polling; moves the board to a git branch so it works across machines, and adds roles, owner authority and a release process |
-| [AnastasiyaW/mclaude](https://github.com/AnastasiyaW/mclaude) | File-based coordination for several Claude Code sessions: atomic locks, Markdown handoffs, addressed messages, an identity registry | Handovers that record failed approaches; claims with leases instead of locks; tool-agnostic, so Codex and others take part |
-| [OrchestratorInc/agent-orchestrator](https://github.com/OrchestratorInc/agent-orchestrator) (formerly ComposioHQ) | Desktop workspace that plans tasks and runs many coding agents, each with its own branch, worktree and browser, tracked through PRs, CI and review | Complementary: use it to run agents, and this protocol for who approves, how releases are verified and when the main branch may move |
-| [gitpcl/openorchestrator](https://github.com/gitpcl/openorchestrator) | Terminal control plane for parallel agents in worktrees, with conflict warnings and merge queuing | Same overlap idea, made a mandatory release step (warn other lines before merging) |
-| [andyrewlee/awesome-agent-orchestrators](https://github.com/andyrewlee/awesome-agent-orchestrators) | Curated list of orchestrators, swarms, loop runners and agent infrastructure | Where to find an orchestrator to pair with this protocol |
-| [Tessl "agent team operation" rule](https://tessl.io/registry/jbaruch/coding-policy/0.3.186/files/rules/agent-team-operation.md) | Rules for agent team rounds: rotating roles, self-contained briefs, one writer per worktree, report files, a cap on fix attempts, review before a PR | Self-contained messages, one writer per tree, a five-round fix cap, and independent review before release |
-
-What is different here: approvals are never relayed (3.1), standing authorizations are
-written down and read narrowly (3.3), a release role verifies against the exact SHA and the
-real exit status before the main branch moves (7), interface changes are announced before
-merge (5.3), and the rules are tied to a table of failures that actually happened (11).
+This protocol is a governance layer meant to sit on top of orchestrators, not to replace
+them. See [docs/RELATED-WORK.md](docs/RELATED-WORK.md) for the projects it borrows ideas
+from and how it differs.
 
 ## License
 
