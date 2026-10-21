@@ -62,7 +62,12 @@ worktree="$HOME/code/project-api"         # this line's own worktree
 scripts="$worktree/tools/multi-agent-protocol/scripts"
 
 cd "$worktree" || exit 2
-"$scripts/inbox.sh" "$line" >/dev/null || exit 0   # nothing new, or an error: no model call
+"$scripts/inbox.sh" "$line" >/dev/null
+case $? in
+    0) ;;                                   # unread messages: wake the agent
+    1) exit 0 ;;                            # nothing new: no model call
+    *) echo "inbox check failed" >&2; exit 2 ;;  # surface errors (network, sandbox)
+esac
 
 codex exec -C "$worktree" --sandbox workspace-write \
   "You are line $line. Follow the Multi-Agent Protocol in AGENTS.md. Run

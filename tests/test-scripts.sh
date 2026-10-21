@@ -103,6 +103,37 @@ check "lead releases the stale claim with --stale" run release-claim.sh --stale 
 check "lead releases its own claim" run release-claim.sh lead fix-login
 check "claims folder is empty again" sh -c "[ -z \"\$(git ls-tree --name-only origin/coordination claims/ | grep -v gitkeep)\" ]"
 
+# Review fixes: roles, read order, CRLF, names, numbers, listings.
+sed -e 's/<line>/release-a/' -e 's/<lead \/ line \/ release>/release/' "${repo_root}/templates/status.md" >"${work}/release-a-status.md"
+check "release-a publishes a status with Role: release" run status.sh release-a "${work}/release-a-status.md"
+printf 'type: release-request\r\nfrom: lead\r\nto: release\r\n\r\n- Branch: lead/demo\r\n' >"${work}/crlf.md"
+check "send accepts a CRLF message" run send.sh "${work}/crlf.md"
+check "a message to the role reaches release-a" sh -c "'$test_shell' '${scripts}/inbox.sh' release-a | grep -q _lead_release-request.md"
+check "status.sh --claims lists nothing stale yet" run status.sh --claims
+check "status.sh --decisions runs" run status.sh --decisions
+check_status "an option-like line name is refused" 2 run claim.sh lead -fix
+check "claim.sh accepts --hours 08" run claim.sh --hours 08 lead octal-test
+check "release the octal-test claim" run release-claim.sh lead octal-test
+
+# mark-read keeps the order.
+printf 'type: question\nfrom: lead\nto: api\n\nOne?\n' >"${work}/q1.md"
+printf 'type: question\nfrom: lead\nto: api\n\nTwo?\n' >"${work}/q2.md"
+q1=$(run send.sh "${work}/q1.md" 2>/dev/null)
+sleep 1
+q2=$(run send.sh "${work}/q2.md" 2>/dev/null)
+cd "${work}/api" || exit 2
+for pending in $(run inbox.sh api); do
+    [ "$pending" = "$q1" ] && break
+    run mark-read.sh api "$pending" >/dev/null 2>&1
+done
+check_status "mark-read refuses to skip an unread message" 2 run mark-read.sh api "$q2"
+check "mark-read accepts the first unread message" run mark-read.sh api "$q1"
+check "mark-read then accepts the next one" run mark-read.sh api "$q2"
+check_status "mark-read refuses to move backwards" 2 run mark-read.sh api "$q1"
+check "mark-read --force moves backwards" run mark-read.sh --force api "$q1"
+check "mark-read --force moves forward again" run mark-read.sh --force api "$q2"
+cd "${work}/lead" || exit 2
+
 # Parallel release sessions take turns on the main branch.
 check "release-a takes release-main" run claim.sh release-a release-main
 cd "${work}/api" || exit 2
@@ -140,6 +171,28 @@ check "installed copy has templates and VERSION" sh -c "[ -f '${work}/other/tool
 check "installed send.sh finds its templates" sh -c "'$test_shell' '${work}/other/tools/multi-agent-protocol/scripts/send.sh' --template handover | grep -q '^type: handover'"
 check "install updates an earlier copy" sh -c "'$test_shell' '${scripts}/install.sh' '${work}/other' 2>&1 | grep -q updated"
 check_status "install refuses a path outside the project" 2 run install.sh --dest ../x "${work}/other"
+
+# Speed: a thousand messages pushed in one commit.
+bulk=$(mktemp -d "${work}/bulk.XXXXXX")
+git worktree add --quiet --detach "$bulk" origin/coordination
+index=0
+while [ "$index" -lt 1000 ]; do
+    printf 'type: heads-up\nfrom: lead\nto: all\n\nBulk %s\n' "$index" >"${bulk}/messages/20261001T$(printf '%06d' "$index")Z_lead_heads-up.md"
+    index=$((index + 1))
+done
+git -C "$bulk" add -A && git -C "$bulk" commit --quiet -m "bulk messages" && git -C "$bulk" push --quiet origin HEAD:coordination
+git worktree remove --force "$bulk"
+started=$(date +%s)
+run inbox.sh lead >/dev/null 2>&1
+elapsed=$(($(date +%s) - started))
+check "inbox.sh handles 1000 new messages in under 10 s (took ${elapsed} s)" test "$elapsed" -lt 10
+started=$(date +%s)
+run doctor.sh >/dev/null 2>&1
+elapsed=$(($(date +%s) - started))
+check "doctor.sh handles them in under 15 s (took ${elapsed} s)" test "$elapsed" -lt 15
+
+# Error messages.
+check "a missing branch is reported as missing" sh -c "MAP_BRANCH=nope '$test_shell' '${scripts}/inbox.sh' lead 2>&1 | grep -q 'does not exist'"
 
 check "no temporary worktrees are left behind" sh -c "[ \"\$(git worktree list | wc -l | tr -d ' ')\" = 1 ]"
 

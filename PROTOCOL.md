@@ -39,7 +39,8 @@ Rules:
 
 Roles are not limited to one session each, and the list above is not closed.
 
-- **Every session has its own line name**, even when it shares a role (for example `release-a` and `release-b`). Status files, claims and messages are keyed by line name, so two sessions MUST NOT use the same one.
+- **Every session has its own line name**, even when it shares a role (for example `release-a` and `release-b`). Status files, claims and messages are keyed by line name, so two sessions MUST NOT use the same one. Each status file names the session's role (`Role:`), so a message addressed to a role reaches every session that holds it.
+- **Messages to a shared role.** When several sessions hold the role a message is addressed to, the first one to claim `msg-<timestamp>-<from>` (5.5) handles the message; the others mark it read without acting on it.
 - **Lines run in parallel by design.** A project MAY have any number of lines, each with its own name, branch prefix and area.
 - **Builders and reviewers MAY run in parallel**, each on its own task, worktree and branch (builders) or detached worktree (reviewers).
 - **Several leads** MAY split the work by area. The role table names which lead is the owner's routine contact and which lead owns each shared contract; a contract has exactly one owning lead.
@@ -85,7 +86,7 @@ The protocol assumes one owner. A project with several human owners lists them i
 
 ## 4. Isolation
 
-- **Branches.** One branch per line of work, with a prefix that names the line (`lead/…`, `api/…`, `release`). Two lines MUST NOT commit to the same branch.
+- **Branches.** One branch per line of work, with a prefix that names the line (`lead/…`, `api/…`, `release/…`; parallel release sessions use their own line names, such as `release-a/…`). Two lines MUST NOT commit to the same branch.
 - **Working trees.** Each session MUST work in its own checkout or `git worktree`. Each builder gets a fresh worktree.
 - **Main branch.** Only the release role advances the main branch, and only to a commit that was verified and released (section 7).
 - **History.** Never force-push or rewrite pushed history on shared branches.
@@ -112,14 +113,14 @@ decisions/<YYYY-MM-DD>_<topic>.md           owner decisions and standing authori
 - Line names, task slugs and topics use letters, digits, `.` and `-`. The underscore is reserved as the separator in message names.
 - Timestamps are `YYYYMMDDTHHMMSSZ` in UTC. If a name is already taken, wait a second and take a new timestamp. The timestamp is for people; the order that counts is the order in which messages were pushed, which the branch history records and which does not depend on any machine's clock.
 - A message file is immutable once pushed. A correction is a new message that references the old one.
-- Pull before writing; on a rejected push, pull and retry. Messages never conflict, because each is a new file.
+- Pull before writing; on a rejected push, pull with rebase and retry. Never create a merge commit on this branch: the message order is the branch history. Messages never conflict, because each is a new file.
 - Each status file follows `templates/status.md`. Its `Last-read` field names the last message the line has fully handled. Act on a message first and advance `Last-read` after, so an interrupted session redoes work instead of losing it.
 - A decision that is replaced gets a line `superseded-by: <file>`; it is never deleted.
 
 ### 5.3 When to read and write
 
 - Read the coordination branch at session start, before taking a task, before and after merging into the main branch, and at least hourly during long tasks.
-- At session start, read in this order: your role, the latest `decisions/`, unread messages addressed to you or to `all`, active claims, and the other lines' status.
+- At session start, read in this order: your role, the latest `decisions/`, unread messages addressed to you, to your role or to `all`, active claims, and the other lines' status.
 - An agent without push notifications SHOULD check on a timer, with a cheap check first (`scripts/inbox.sh <line>`, no model call), and wake the model only when something is new.
 - Update your status when you start or finish a task and when your declared area changes.
 - Announce an interface change (function signatures, API fields, file formats, configuration keys, shared selectors) with a `heads-up` **before** merging it, and keep reading the old form where feasible.
@@ -131,7 +132,7 @@ Every message starts with a header block, followed by a blank line:
 ```
 type: handover | release-request | released | returned | heads-up | question | answer
 from: <line or role>
-to: <line or role, several separated by commas, or "all">
+to: <line names or role names, several separated by commas, or "all">
 refs: <earlier message files, optional>
 ```
 
@@ -140,7 +141,7 @@ refs: <earlier message files, optional>
 | `handover` | any | Pass a task to another agent | Goal, current state, confirmed facts, suggested approach, blockers, tests and docs required, and "no code changed" where true |
 | `release-request` | line, lead | Ask the release role to ship a branch | Branch, exact commit SHA, migrations (none, or each operation), configuration or scheduled-job changes, owner approvals and where they were given, checks run with results, known limits |
 | `released` | release | Confirm what is live | Production commit, main branch commit, what went live, migration and rehearsal result, rollback command, follow-ups for the requester |
-| `returned` | release, reviewer, lead | Send work back | Findings ranked by severity with evidence; what must change before the next attempt |
+| `returned` | release, lead, line | Send work back (a lead or line also relays its reviewer's findings this way) | Findings ranked by severity with evidence; what must change before the next attempt |
 | `heads-up` | any | Announce an interface or behaviour change | What changes, when, compatibility, what others must do |
 | `question` / `answer` | any | Ask another agent for facts | The question and its context; the answer references the question |
 
@@ -150,7 +151,7 @@ A message MUST be self-contained: the receiver has none of the sender's conversa
 
 A claim says "this line is doing this task", so that two lines do not start the same work.
 
-- To claim, fetch the coordination branch. If `claims/<task-slug>.md` exists, the task is taken. Otherwise add the file (owner line, branch, started, `expires`) and push. If the push is rejected, fetch again and repeat the check: if the file now exists, the task is taken.
+- To claim, fetch the coordination branch. If `claims/<task-slug>.md` exists, the task is taken. Otherwise add the file and push. Its format is four lines, with UTC times as `YYYY-MM-DDTHH:MM:SSZ`: `- Owner: <line>`, `- Branch: <branch>`, `- Started: <time>`, `- Expires: <time>` (`scripts/claim.sh` writes it). If the push is rejected, fetch again and repeat the check: if the file now exists, the task is taken.
 - Renew a claim by moving `expires` forward while working; a typical lease is a few hours.
 - A claim past `expires` is stale. Another line MAY take it over only after a `heads-up` that names the stale claim, and SHOULD first ask the owner when the stale line may still have unpushed work.
 - Release the claim (delete the file) when the task is handed over or released.
@@ -174,7 +175,7 @@ For each change, the release role MUST:
 
 1. **Review** the change against the project's rules: authorization and data scoping, input validation, concurrency and idempotency, secrets, conventions, tests and docs. Send it back (`returned`) if needed.
 2. **Check overlap.** List the files this change touches that other open branches also touch, and warn those lines (`heads-up`) before merging.
-3. **Merge** the change into a release branch that starts from the current main branch.
+3. **Merge** the change into a release branch (under the release line's own prefix) that starts from the current main branch.
 4. **Verify locally**: the project's full gate (format, lint, types, tests) and end-to-end checks. Run end-to-end checks with limited parallelism, and rerun a failure alone before treating it as real.
 5. **Verify in CI** on the exact commit SHA that will ship. Pending is not passing. A docs-only commit that CI skips does not count; release the last code commit.
 6. **Check approvals.** Migrations, configuration changes, new scheduled jobs and data deletion need the owner's direct approval or a matching standing authorization (3.2, 3.3). An approval listed in a `release-request` is a pointer, not the approval itself: confirm it with the owner unless a recorded standing authorization covers it.
@@ -208,7 +209,7 @@ A report MUST NOT say a check passed when it was skipped, blocked or only read.
 - The reviewer gets a compact task packet (`templates/review-packet.md`): branch and commit, scope, expected behaviour, how to run it with synthetic data, and where to save evidence. Not the full conversation.
 - The reviewer uses the product like a user (real controls, several screen sizes, every language and theme the product supports, error and empty states) and reads the code it needs.
 - Findings are ranked P1 (blocks release), P2 (fix before release) and P3 (fix when convenient). Each has the observation, the expectation and evidence (screenshot, log, command).
-- The reviewer changes nothing, commits nothing, starts no further agents and touches no production system.
+- The reviewer changes nothing, commits nothing (not even to the coordination branch), starts no further agents and touches no production system. It reports to whoever started it, who sends `returned` when changes are needed.
 - A re-check after fixes covers the earlier findings, each marked resolved, open, or declined with a reason. A new finding in a re-check blocks only if it is P1; anything else becomes a follow-up.
 
 ## 10. Agent-usable operations (recommended)
@@ -256,5 +257,7 @@ Everything else is RECOMMENDED. In particular, the coordination branch MAY be re
 3. Create the coordination branch: `scripts/init-coordination.sh`.
 4. Record any standing authorizations the owner grants (3.3).
 5. Start each session with its role, for example: "You are the release role in this project; follow PROTOCOL.md."
+
+The setup commit (the rules snippet and any vendored files) is the project's first release: the owner merges it into the main branch, or approves the agent doing so, before the other sessions start, so that every session reads the same rules.
 
 `adapters/BOOTSTRAP.md` is a prompt that asks any agent to do these steps.

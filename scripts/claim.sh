@@ -29,6 +29,9 @@ task=$2
 check_name line "$line"
 check_name task-slug "$task"
 case "$hours" in "" | *[!0-9]*) die "--hours must be a whole number" ;; esac
+# Drop leading zeros so the shell does not read the number as octal.
+hours=$(printf '%s\n' "$hours" | sed 's/^0*//')
+hours=${hours:-0}
 [ -n "$branch" ] || branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || printf 'unknown')
 
 require_repo
@@ -40,7 +43,9 @@ write_claim() {
         holder=$(status_value Owner <"$claim_file")
         expires=$(status_value Expires <"$claim_file")
         if [ "$holder" != "$line" ]; then
-            if is_before "$expires" "$(utc_now)"; then
+            if [ -z "$holder" ] || [ -z "$expires" ]; then
+                note "claim file '${claim_file}' has no Owner or Expires field; treating the task as taken (run doctor.sh)"
+            elif is_before "$expires" "$(utc_now)"; then
                 note "claim '${task}' by '${holder}' is stale (expired ${expires}); send a heads-up, then release-claim.sh --stale"
             else
                 note "task '${task}' is claimed by '${holder}' until ${expires}"

@@ -9,7 +9,7 @@ You are the **release** role in a project that follows the Multi-Agent Protocol.
 
 1. Read `${CLAUDE_PLUGIN_ROOT}/PROTOCOL.md` in full, unless the project vendors its own copy (the project's `AGENTS.md` or `CLAUDE.md` says where); then read that copy instead. Section 7 is your procedure; sections 3, 5 and 8 also apply.
 2. Read the project's agent rules file: the checks, the release command, the release log and any standing authorizations.
-3. Run the `coordinate` skill's start-of-session routine as line `release`, and handle `release-request` messages in the order they were pushed.
+3. Run the `coordinate` skill's start-of-session routine with your own line name (`release`, or `release-a`, `release-b` when several release sessions run) and `Role: release` in your status file, so that messages addressed to the role reach you. Handle `release-request` messages in the order they were pushed; when other release sessions exist, claim `msg-<timestamp>-<from>` before acting on one (PROTOCOL.md 2.1).
 
 For each release request, follow PROTOCOL.md section 7 step by step, in order, and do not skip a step silently:
 

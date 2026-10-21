@@ -19,6 +19,7 @@ Scripts (`S=${CLAUDE_PLUGIN_ROOT}/scripts`):
 | Send a message | `$S/send.sh <file>` (file = header + body; the name is chosen for you) |
 | Mark a message handled | `$S/mark-read.sh <line> <message-file>`, only after acting on it |
 | Show or publish status | `$S/status.sh <line>`, `$S/status.sh <line> <file>`, `$S/status.sh --all` |
+| Claims and decisions | `$S/status.sh --claims`, `$S/status.sh --decisions` |
 | Claim or renew a task | `$S/claim.sh [--hours N] [--branch B] <line> <task-slug>`. Exit 1 means taken |
 | Release a claim | `$S/release-claim.sh <line> <task-slug>`; `--stale` only after a heads-up |
 | Remember this worktree's line name | `$S/set-line.sh <line>` (enables the session-start summary); `$S/set-line.sh` prints it |
@@ -27,9 +28,9 @@ Scripts (`S=${CLAUDE_PLUGIN_ROOT}/scripts`):
 
 Start of session, as line `<line>` (PROTOCOL.md 5.3):
 
-1. Fetch and read the latest files in `decisions/` (`git fetch origin coordination`, then `git show origin/coordination:decisions/<file>`).
+1. `$S/status.sh --decisions`: read the owner decisions, newest first.
 2. `$S/inbox.sh --show <line>`: handle each message in order; after each one, `$S/mark-read.sh <line> <message>`.
-3. `$S/status.sh --all` and `git ls-tree --name-only origin/coordination claims/`: who is doing what.
+3. `$S/status.sh --all` and `$S/status.sh --claims`: who is doing what.
 4. Publish your own status if it changed.
 5. If `$S/set-line.sh` prints nothing, offer the user to store this worktree's line name, so that later sessions here start with a summary.
 

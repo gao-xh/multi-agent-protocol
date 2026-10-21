@@ -3,6 +3,8 @@
 # Usage: status.sh <line>              print the line's current status
 #        status.sh <line> <file>       publish <file> as status/<line>.md
 #        status.sh --all               print every line's status
+#        status.sh --claims            list active claims (owner, expires; stale ones marked)
+#        status.sh --decisions         print the files in decisions/, newest first
 # When publishing, the "- Updated:" field is set to the current UTC time, and an
 # existing "- Last-read:" value is kept if <file> leaves it empty or as a placeholder.
 set -u
@@ -11,10 +13,33 @@ PROG=status.sh
 . "$(dirname -- "$0")/lib.sh"
 
 case "${1:-}" in
-    -h | --help | "") sed -n '2,7s/^# \{0,1\}//p' "$0"; [ $# -gt 0 ]; exit $? ;;
+    -h | --help | "") sed -n '2,9s/^# \{0,1\}//p' "$0"; [ $# -gt 0 ]; exit $? ;;
 esac
 require_repo
 fetch_coordination
+
+case "$1" in
+    --claims)
+        now=$(utc_now)
+        for path in $(git ls-tree --name-only "$(coordination_ref)" claims/); do
+            case "$path" in */.gitkeep) continue ;; esac
+            content=$(show_file "$path")
+            holder=$(printf '%s\n' "$content" | status_value Owner)
+            expires=$(printf '%s\n' "$content" | status_value Expires)
+            marker=""
+            if [ -n "$expires" ] && is_before "$expires" "$now"; then marker=" (stale)"; fi
+            task=${path#claims/}
+            printf '%s\t%s\t%s%s\n' "${task%.md}" "${holder:-?}" "${expires:-?}" "$marker"
+        done
+        exit 0 ;;
+    --decisions)
+        for path in $(git ls-tree --name-only "$(coordination_ref)" decisions/ | grep -v '/\.gitkeep$' | LC_ALL=C sort -r); do
+            printf '===== %s\n' "$path"
+            show_file "$path"
+            printf '\n'
+        done
+        exit 0 ;;
+esac
 
 if [ "$1" = --all ]; then
     for path in $(git ls-tree --name-only "$(coordination_ref)" status/); do

@@ -41,7 +41,10 @@ to=$(header_value to <"$source_file")
 is_message_type "$message_type" || die "header 'type:' must be one of: ${MAP_MESSAGE_TYPES}"
 check_name sender "$from"
 [ -n "$to" ] || die "header 'to:' is empty"
-if grep -q '<[a-z][^>]*>' "$source_file"; then
+# Template placeholders left in the header, or a field whose whole value is one.
+if header_block=$(sed -n '/^[[:space:]]*$/q;p' "$source_file") &&
+    { printf '%s\n' "$header_block" | grep -q '<[^>]*>' ||
+        grep -Eq '^- [^:]+: <[^>]+>[[:space:]]*$' "$source_file"; }; then
     note "warning: the message still contains template placeholders like <...>"
 fi
 
@@ -59,5 +62,5 @@ write_message() {
     published="messages/${name}"
 }
 
-publish_change write_message "chore: send ${message_type} from ${from} to ${to}"
+publish_change write_message "chore: send ${message_type} from ${from} to ${to}" || exit $?
 printf '%s\n' "$published"

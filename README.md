@@ -22,7 +22,7 @@ with plain terminal sessions on different machines.
 
 - **[PROTOCOL.md](PROTOCOL.md)**: the protocol (RFC 2119 wording, about 15 minutes to read).
 - **[scripts/](scripts/)**: POSIX `sh` tools for the git-based coordination branch. They need only git.
-- **[templates/](templates/)**: message templates (handover, release request, released, returned, heads-up, status, review packet).
+- **[templates/](templates/)**: message templates (handover, release request, released, returned, heads-up, status, review packet; `send.sh --template question` and `answer` print the short ones).
 - **[adapters/](adapters/)**: the `AGENTS.md` snippet, a bootstrap prompt for any agent, and notes for Codex.
 - **Claude Code plugin**: role skills (`lead`, `line`, `release`, `coordinate`) and `builder` / `reviewer` agents.
 
@@ -151,8 +151,9 @@ owners ([PROTOCOL.md 12.1](PROTOCOL.md#121-profiles)).
 Then start each session with its role: `/multi-agent-protocol:lead`,
 `/multi-agent-protocol:line api`, `/multi-agent-protocol:release`, and use
 `/multi-agent-protocol:coordinate` for the inbox, messages and claims. The `builder` and
-`reviewer` agents become available for delegation; the reviewer has no edit tools and
-cannot start other agents.
+`reviewer` agents become available for delegation. The reviewer has no file-editing tools
+and cannot start other agents; it does have Bash to run the change, and is read-only by
+instruction.
 
 Optional: to have each session start with a summary of its unread messages and active
 claims, give the worktree a line name once. The plugin's SessionStart hook then runs

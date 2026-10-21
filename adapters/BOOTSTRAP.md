@@ -43,6 +43,8 @@ Set up this project for multi-agent collaboration with the Multi-Agent Protocol.
      PROTOCOL_PATH, SCRIPTS_PATH and MAIN_BRANCH replaced. If the project uses both
      AGENTS.md and CLAUDE.md, put the block in AGENTS.md and make CLAUDE.md point to it.
    - If I chose vendoring, run scripts/install.sh and commit the copy on your own branch.
+   - This setup commit is the project's first release: ask me to merge it into the main
+     branch (or to let you do it) before other sessions start, so they read the same rules.
    - Run scripts/init-coordination.sh (it does nothing if the branch exists).
    - Fill in templates/status.md for your line and publish it with
      scripts/status.sh <line> <file>.

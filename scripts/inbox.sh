@@ -1,6 +1,7 @@
 #!/bin/sh
-# List unread messages for a line: addressed to it or to "all", newer than the
-# Last-read field of its status file, and not sent by itself. No model call.
+# List unread messages for a line: addressed to the line, to its role (the Role field of
+# its status file), or to "all"; pushed after the line's Last-read; not sent by itself.
+# No model call.
 # Usage: inbox.sh [--show] [--no-fetch] <line>
 #   --show      print each message instead of only its file name
 #   --no-fetch  use the last fetched copy of the coordination branch
@@ -30,42 +31,45 @@ require_repo
 [ "$fetch" -eq 0 ] || fetch_coordination
 git rev-parse --verify --quiet "$(coordination_ref)" >/dev/null || die "no local copy of '${MAP_BRANCH}'; run without --no-fetch"
 
-last_read=$(show_file "status/${line}.md" | status_value Last-read)
+status_text=$(show_file "status/${line}.md")
+last_read=$(printf '%s\n' "$status_text" | status_value Last-read)
 case "$last_read" in
-    "" | none | "<"*) last_read="" ;;
+    none | "<"*) last_read="" ;;
     messages/*) last_read=${last_read#messages/} ;;
 esac
+role=$(printf '%s\n' "$status_text" | status_value Role)
+case "$role" in "<"* | *[!A-Za-z0-9.-]*) role="" ;; esac
 
-# Messages in the order they were pushed (the branch history is linear), which
-# does not depend on the clocks of the machines that wrote them.
-pushed_messages=$(git log --reverse --diff-filter=A --format= --name-only "$(coordination_ref)" -- messages/ |
-    sed -n "s|^messages/\(.*\.md\)\$|\1|p")
+unread=$(
+    {
+        message_headers
+        printf '%s\n' '#push-order'
+        messages_in_push_order
+    } | LC_ALL=C awk -F '\t' -v line="$line" -v role="$role" -v last_read="$last_read" '
+        !in_order && $0 == "#push-order" { in_order = 1; next }
+        !in_order { from[$1] = $3; to[$1] = $4; next }
+        { order[++count] = $0; if ($0 == last_read) found = 1 }
+        END {
+            if (last_read != "" && !found) {
+                printf "inbox.sh: warning: Last-read \047%s\047 not found; listing all messages\n", last_read > "/dev/stderr"
+                last_read = ""
+            }
+            past = (last_read == "")
+            for (i = 1; i <= count; i++) {
+                name = order[i]
+                if (!past) { if (name == last_read) past = 1; continue }
+                if (from[name] == line) continue
+                recipients = to[name]; gsub(/,/, " ", recipients)
+                n = split(recipients, list, /[ \t]+/)
+                for (j = 1; j <= n; j++) {
+                    if (list[j] == line || list[j] == "all" || (role != "" && list[j] == role)) { print name; break }
+                }
+            }
+        }'
+)
 
-past_last_read=1
-if [ -n "$last_read" ]; then
-    past_last_read=0
-    printf "%s\n" "$pushed_messages" | grep -Fqx "$last_read" ||
-        { note "warning: Last-read '${last_read}' not found; listing all messages"; past_last_read=1; }
-fi
-
-found=0
-for name in $pushed_messages; do
-    if [ "$past_last_read" -eq 0 ]; then
-        [ "$name" = "$last_read" ] && past_last_read=1
-        continue
-    fi
-    header=$(show_file "messages/${name}" | sed -n '/^$/q;p')
-    from=$(printf '%s\n' "$header" | header_value from)
-    [ "$from" != "$line" ] || continue
-    recipients=$(printf '%s\n' "$header" | header_value to | tr ',' ' ')
-    addressed=0
-    for recipient in $recipients; do
-        if [ "$recipient" = "$line" ] || [ "$recipient" = all ]; then
-            addressed=1
-        fi
-    done
-    [ "$addressed" -eq 1 ] || continue
-    found=1
+[ -n "$unread" ] || exit 1
+for name in $unread; do
     if [ "$show" -eq 1 ]; then
         printf '===== messages/%s\n' "$name"
         show_file "messages/${name}"
@@ -74,6 +78,4 @@ for name in $pushed_messages; do
         printf 'messages/%s\n' "$name"
     fi
 done
-
-[ "$found" -eq 1 ] && exit 0
-exit 1
+exit 0

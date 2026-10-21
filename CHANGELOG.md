@@ -23,6 +23,25 @@ minor version adds rules, roles or tools, and a patch fixes wording or bugs.
 ### Changed
 
 - README: redrawn role diagram; related-work section removed.
+- Messages addressed to a role reach every session whose status has that `Role:`; when
+  several sessions hold it, the first to claim `msg-<timestamp>-<from>` handles it.
+- A reviewer reports to whoever started it, who sends `returned`; reviewers never write to
+  the coordination branch.
+- Parallel release sessions use their own branch prefixes; the setup commit is the first
+  release; the coordination branch is pulled with rebase.
+- Claim files have an exact documented format.
+
+### Fixed
+
+- `inbox.sh` and `doctor.sh` read all message headers in one pass: 1000 messages now take
+  about a second instead of minutes, so the session-start hook stays within its timeout.
+- `mark-read.sh` refuses to skip an earlier unread message or move backwards (`--force`).
+- CRLF line endings and different key case in headers, status and claim files are accepted.
+- Fetch, push and remote errors are reported as such, not as a missing branch.
+- Leftover temporary worktrees are pruned, and `doctor.sh` reports any that remain.
+- `send.sh` returns the error status when publishing fails; fewer false placeholder warnings.
+- Line names starting with `-` are refused; `claim.sh --hours 08` works.
+- `status.sh --claims` and `--decisions` replace raw git commands in the coordinate skill.
 
 ## 1.1.0 - 2026-10-21
 

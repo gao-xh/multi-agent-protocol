@@ -42,28 +42,56 @@ if [ "$(git rev-list --max-parents=0 "$ref" | wc -l | tr -d ' ')" != 1 ]; then
     warn "'${MAP_BRANCH}' has more than one root commit; was a development branch merged into it?"
 fi
 
-# Messages: names, headers, and no edits or deletions after push.
-message_names=$(git ls-tree --name-only "$ref" messages/ | sed 's|^messages/||')
+# The message order relies on linear history (pull with rebase, never a merge commit).
+if [ -n "$(git rev-list --merges -n 1 "$ref")" ]; then
+    warn "'${MAP_BRANCH}' contains merge commits; message order may be unclear (pull with --rebase)"
+fi
+
+# Temporary worktrees left behind by interrupted runs of these scripts (this clone only).
+git worktree prune 2>/dev/null
+leftovers=$(git worktree list --porcelain | sed -n 's/^worktree \(.*\/map-coordination\.[^/]*\)$/\1/p')
+if [ -n "$leftovers" ]; then
+    printf '%s\n' "$leftovers" | while IFS= read -r leftover; do
+        printf 'WARNING  leftover temporary worktree %s; if no script is running, remove it with: git worktree remove --force "%s"\n' "$leftover" "$leftover"
+    done
+    warnings=$((warnings + 1))
+fi
+
+# Messages: names and headers (read in one pass), and no edits or deletions after push.
+message_names=$(git ls-tree --name-only "$ref" messages/ | sed 's|^messages/||' | grep -v '^\.gitkeep$')
+headers=$(message_headers)
 for name in $message_names; do
-    [ "$name" = .gitkeep ] && continue
     case "$name" in
         [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z_*_*.md) ;;
-        *) error "message name 'messages/${name}' does not match <YYYYMMDDTHHMMSSZ>_<from>_<type>.md"; continue ;;
-    esac
-    header=$(show_file "messages/${name}" | sed -n '/^$/q;p')
-    message_type=$(printf '%s\n' "$header" | header_value type)
-    from=$(printf '%s\n' "$header" | header_value from)
-    to=$(printf '%s\n' "$header" | header_value to)
-    known=0
-    for candidate in $MAP_MESSAGE_TYPES; do [ "$candidate" = "$message_type" ] && known=1; done
-    [ "$known" -eq 1 ] || error "messages/${name}: unknown or missing 'type:'"
-    [ -n "$from" ] || error "messages/${name}: missing 'from:'"
-    [ -n "$to" ] || error "messages/${name}: missing 'to:'"
-    case "$name" in
-        *_"${from}_${message_type}".md) ;;
-        *) warn "messages/${name}: name does not match header (from: ${from}, type: ${message_type})" ;;
+        *) error "message name 'messages/${name}' does not match <YYYYMMDDTHHMMSSZ>_<from>_<type>.md" ;;
     esac
 done
+problems=$({ printf '%s\n' "$headers"; printf '%s\n' '#names' "$message_names"; } |
+    LC_ALL=C awk -F '\t' -v types="$MAP_MESSAGE_TYPES" '
+    BEGIN { n = split(types, list, " "); for (i = 1; i <= n; i++) known[list[i]] = 1 }
+    !in_names && $0 == "#names" { in_names = 1; next }
+    !in_names { if ($1 != "") { type[$1] = $2; from[$1] = $3; to[$1] = $4; seen[$1] = 1 }; next }
+    $0 == "" { next }
+    {
+        name = $0
+        if (!(name in seen)) { print "ERROR messages/" name ": no header block (type:, from:, to:)"; next }
+        if (!(type[name] in known)) print "ERROR messages/" name ": unknown or missing \047type:\047"
+        if (from[name] == "") print "ERROR messages/" name ": missing \047from:\047"
+        if (to[name] == "") print "ERROR messages/" name ": missing \047to:\047"
+        suffix = "_" from[name] "_" type[name] ".md"
+        if (from[name] != "" && substr(name, length(name) - length(suffix) + 1) != suffix)
+            print "WARNING messages/" name ": name does not match header (from: " from[name] ", type: " type[name] ")"
+    }')
+if [ -n "$problems" ]; then
+    while IFS= read -r problem; do
+        case "$problem" in
+            "ERROR "*) error "${problem#ERROR }" ;;
+            "WARNING "*) warn "${problem#WARNING }" ;;
+        esac
+    done <<PROBLEMS
+$problems
+PROBLEMS
+fi
 
 changed=$(git log --format= --name-status --diff-filter=MDRT "$ref" -- messages/ | grep -v '/\.gitkeep$' | sort -u)
 if [ -n "$changed" ]; then
@@ -77,8 +105,8 @@ fi
 for path in $(git ls-tree --name-only "$ref" status/); do
     case "$path" in */.gitkeep) continue ;; *.md) ;; *) warn "unexpected file '${path}'"; continue ;; esac
     content=$(show_file "$path")
-    for field in Branch Task State Last-read Updated; do
-        printf '%s\n' "$content" | grep -q "^- ${field}:" || error "${path}: missing '- ${field}:'"
+    for field in Role Branch Task State Last-read Updated; do
+        [ -n "$(printf '%s\n' "$content" | status_value "$field")" ] || error "${path}: missing or empty '- ${field}:'"
     done
     last_read=$(printf '%s\n' "$content" | status_value Last-read)
     last_read=${last_read#messages/}

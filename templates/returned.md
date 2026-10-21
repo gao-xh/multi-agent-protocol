@@ -1,5 +1,5 @@
 type: returned
-from: <release / reviewer / lead>
+from: <release, lead or line>
 to: <requester>
 refs: <request or branch>
 

@@ -24,10 +24,11 @@ require_repo() {
     git rev-parse --git-dir >/dev/null 2>&1 || die "not inside a git repository"
 }
 
-# Names of lines, tasks and topics: letters, digits, '.' and '-' ('_' separates parts of message names).
+# Names of lines, roles, tasks and topics: letters, digits, '.' and '-', not starting
+# with '.' or '-' ('_' separates the parts of message names).
 check_name() {
     case "$2" in
-        "" | .* | *[!A-Za-z0-9.-]*) die "invalid $1 '$2' (use letters, digits, '.' and '-')" ;;
+        "" | .* | -* | *[!A-Za-z0-9.-]*) die "invalid $1 '$2' (use letters, digits, '.' and '-'; start with a letter or digit)" ;;
     esac
 }
 
@@ -36,18 +37,17 @@ coordination_ref() {
 }
 
 fetch_coordination() {
-    git fetch --quiet "$MAP_REMOTE" \
-        "+refs/heads/${MAP_BRANCH}:$(coordination_ref)" 2>/dev/null ||
-        die "cannot fetch '${MAP_BRANCH}' from '${MAP_REMOTE}' (run init-coordination.sh first?)"
+    fetch_error=$(git fetch --quiet "$MAP_REMOTE" "+refs/heads/${MAP_BRANCH}:$(coordination_ref)" 2>&1) && return 0
+    git ls-remote --exit-code --heads "$MAP_REMOTE" "$MAP_BRANCH" >/dev/null 2>&1
+    case $? in
+        2) die "'${MAP_BRANCH}' does not exist on '${MAP_REMOTE}'; create it with init-coordination.sh" ;;
+        *) die "cannot fetch '${MAP_BRANCH}' from '${MAP_REMOTE}': $(printf '%s\n' "$fetch_error" | tail -n 1) (no network, no access, or a sandbox that blocks network?)" ;;
+    esac
 }
 
 # Print a file from the fetched coordination branch; fail quietly if missing.
 show_file() {
     git show "$(coordination_ref):$1" 2>/dev/null
-}
-
-file_exists() {
-    git cat-file -e "$(coordination_ref):$1" 2>/dev/null
 }
 
 utc_now() {
@@ -70,14 +70,67 @@ is_before() {
     [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | LC_ALL=C sort | head -n 1)" = "$1" ]
 }
 
-# Value of a "key: value" header line in the header block of a message on stdin.
+# Value of a "key: value" line in the header block (up to the first blank line) of a
+# message on stdin. Keys are case-insensitive; CRLF line endings are accepted.
 header_value() {
-    sed -n '/^$/q;p' | sed -n "s/^$1:[[:space:]]*//p" | head -n 1
+    LC_ALL=C awk -v key="$1" '
+        BEGIN { key = tolower(key) }
+        { line = $0; sub(/\r$/, "", line) }
+        line ~ /^[ \t]*$/ { exit }
+        {
+            colon = index(line, ":")
+            if (colon > 1 && tolower(substr(line, 1, colon - 1)) == key) {
+                value = substr(line, colon + 1); gsub(/^[ \t]+|[ \t]+$/, "", value)
+                print value; exit
+            }
+        }'
 }
 
-# Value of a "- Key: value" line in a status file on stdin.
+# Value of a "- Key: value" line in a status or claim file on stdin. Keys are
+# case-insensitive, the leading "- " is optional, and CRLF line endings are accepted.
 status_value() {
-    sed -n "s/^- $1:[[:space:]]*//p" | head -n 1
+    LC_ALL=C awk -v key="$1" '
+        BEGIN { key = tolower(key) }
+        {
+            line = $0; sub(/\r$/, "", line); sub(/^[ \t]*-?[ \t]*/, "", line)
+            colon = index(line, ":")
+            if (colon > 1 && tolower(substr(line, 1, colon - 1)) == key) {
+                value = substr(line, colon + 1); gsub(/^[ \t]+|[ \t]+$/, "", value)
+                print value; exit
+            }
+        }'
+}
+
+# Message file names in the order they were pushed (the branch history is linear),
+# which does not depend on the clocks of the machines that wrote them.
+messages_in_push_order() {
+    git log --reverse --diff-filter=A --format= --name-only "$(coordination_ref)" -- messages/ |
+        sed -n 's|^messages/\([^/]*\.md\)$|\1|p'
+}
+
+# One line per message: name<TAB>type<TAB>from<TAB>to, read from all header blocks with a
+# single git grep (fast even with thousands of messages). Messages without any header
+# line are absent from the output.
+message_headers() {
+    git grep -n -I -i -E '^(type|from|to):|^[[:space:]]*$' "$(coordination_ref)" -- messages/ 2>/dev/null |
+        LC_ALL=C awk -v prefix="$(coordination_ref):messages/" '
+            index($0, prefix) == 1 {
+                rest = substr($0, length(prefix) + 1)
+                colon = index(rest, ":"); name = substr(rest, 1, colon - 1); rest = substr(rest, colon + 1)
+                colon = index(rest, ":"); text = substr(rest, colon + 1); sub(/\r$/, "", text)
+                if (name in done) next
+                if (!(name in seen)) { seen[name] = 1; order[++count] = name }
+                if (text ~ /^[ \t]*$/) { done[name] = 1; next }
+                colon = index(text, ":"); key = tolower(substr(text, 1, colon - 1))
+                value = substr(text, colon + 1); gsub(/^[ \t]+|[ \t]+$/, "", value)
+                if (!((name, key) in field)) field[name, key] = value
+            }
+            END {
+                for (i = 1; i <= count; i++) {
+                    name = order[i]
+                    if (name ~ /\.md$/) printf "%s\t%s\t%s\t%s\n", name, field[name, "type"], field[name, "from"], field[name, "to"]
+                }
+            }'
 }
 
 close_worktree() {
@@ -89,6 +142,8 @@ close_worktree() {
 }
 
 open_worktree() {
+    # Forget worktrees of earlier runs whose directories are gone.
+    git worktree prune 2>/dev/null
     MAP_WORKTREE=$(mktemp -d "${TMPDIR:-/tmp}/map-coordination.XXXXXX") || die "cannot create a temp directory"
     trap close_worktree EXIT
     trap 'close_worktree; exit 130' INT TERM
@@ -98,8 +153,8 @@ open_worktree() {
 
 # publish_change <function> <commit message>
 # Runs <function> in a fresh copy of the coordination branch (cwd = worktree), commits
-# and pushes; on a rejected push, refetches and runs <function> again.
-# <function> returns 0 to publish, or non-zero to stop with that status.
+# and pushes; when the push is rejected because the branch moved, refetches and runs
+# <function> again. <function> returns 0 to publish, or non-zero to stop with that status.
 publish_change() {
     attempt=1
     fetch_coordination
@@ -119,13 +174,17 @@ publish_change() {
             return 0
         fi
         git -C "$MAP_WORKTREE" commit --quiet --no-verify -m "$2" || die "commit failed"
-        if git -C "$MAP_WORKTREE" push --quiet "$MAP_REMOTE" "HEAD:refs/heads/${MAP_BRANCH}" 2>/dev/null; then
+        if push_error=$(git -C "$MAP_WORKTREE" push --quiet "$MAP_REMOTE" "HEAD:refs/heads/${MAP_BRANCH}" 2>&1); then
             git update-ref "$(coordination_ref)" "$(git -C "$MAP_WORKTREE" rev-parse HEAD)"
             return 0
         fi
+        case "$push_error" in
+            *rejected* | *"fetch first"* | *non-fast-forward* | *lock*) ;;
+            *) die "push to '${MAP_REMOTE}' failed: $(printf '%s\n' "$push_error" | tail -n 1)" ;;
+        esac
         [ "$attempt" -lt "$MAP_MAX_ATTEMPTS" ] || die "push rejected ${attempt} times; giving up"
         attempt=$((attempt + 1))
-        note "push rejected; refetching and retrying (attempt ${attempt})"
+        note "the branch moved; refetching and retrying (attempt ${attempt})"
         sleep "$attempt"
         fetch_coordination
     done

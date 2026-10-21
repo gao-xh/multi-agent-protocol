@@ -40,8 +40,8 @@ remove_claim() {
             note "claim '${task}' belongs to '${holder}'; use --stale only for an expired claim"
             return 1
         fi
-        if ! is_before "$expires" "$(utc_now)"; then
-            note "claim '${task}' by '${holder}' is still valid until ${expires}"
+        if [ -z "$expires" ] || ! is_before "$expires" "$(utc_now)"; then
+            note "claim '${task}' by '${holder}' is not past a valid expires time (${expires:-none})"
             return 1
         fi
         note "releasing stale claim '${task}' of '${holder}' (expired ${expires})"

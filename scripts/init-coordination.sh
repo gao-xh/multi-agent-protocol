@@ -14,11 +14,15 @@ esac
 require_repo
 git remote get-url "$MAP_REMOTE" >/dev/null 2>&1 || die "no remote named '${MAP_REMOTE}' (set MAP_REMOTE)"
 
-if git ls-remote --exit-code --heads "$MAP_REMOTE" "$MAP_BRANCH" >/dev/null 2>&1; then
-    note "'${MAP_BRANCH}' already exists on '${MAP_REMOTE}'; nothing to do"
-    fetch_coordination
-    exit 0
-fi
+remote_error=$(git ls-remote --exit-code --heads "$MAP_REMOTE" "$MAP_BRANCH" 2>&1 >/dev/null)
+case $? in
+    0)
+        note "'${MAP_BRANCH}' already exists on '${MAP_REMOTE}'; nothing to do"
+        fetch_coordination
+        exit 0 ;;
+    2) ;;
+    *) die "cannot reach '${MAP_REMOTE}': $(printf '%s\n' "$remote_error" | tail -n 1)" ;;
+esac
 
 write_readme() {
     cat <<'README'
