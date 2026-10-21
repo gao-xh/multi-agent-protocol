@@ -182,6 +182,30 @@ check "installed send.sh finds its templates" sh -c "'$test_shell' '${work}/othe
 check "install updates an earlier copy" sh -c "'$test_shell' '${scripts}/install.sh' '${work}/other' 2>&1 | grep -q updated"
 check_status "install refuses a path outside the project" 2 run install.sh --dest ../x "${work}/other"
 
+# Decisions and signed owner records.
+ssh-keygen -q -t ed25519 -N "" -C test-owner -f "${work}/owner_key"
+printf '# Rules\n\n- Owner signing key: alice %s\n' "$(cut -d' ' -f1,2 "${work}/owner_key.pub")" >AGENTS.md
+git add AGENTS.md && git commit --quiet -m "add owner key" && git push --quiet origin main
+printf 'Owner decision: lead may release docs-only changes.\nScope: docs/ only. Exclusions: none.\n' >"${work}/decision.md"
+ssh-keygen -q -Y sign -f "${work}/owner_key" -n map-approval "${work}/decision.md" 2>/dev/null
+cat "${work}/decision.md.sig" >>"${work}/decision.md"
+decision=$(run decide.sh docs-releases "${work}/decision.md" 2>/dev/null)
+check "decide.sh publishes a decision" test -n "$decision"
+check "verify.sh accepts the owner signature" sh -c "[ \"\$('$test_shell' '${scripts}/verify.sh' '$decision')\" = alice ]"
+check_status "decide.sh refuses a second decision with the same topic today" 1 run decide.sh docs-releases "${work}/decision.md"
+sed 's/docs\/ only/everything/' "${work}/decision.md" >"${work}/forged.md"
+check_status "verify.sh rejects edited content" 1 run verify.sh --file "${work}/forged.md"
+printf 'Owner says yes.\n' >"${work}/unsigned.md"
+check_status "verify.sh rejects an unsigned record" 1 run verify.sh --file "${work}/unsigned.md"
+ssh-keygen -q -t ed25519 -N "" -C other -f "${work}/other_key"
+printf 'Owner decision: anything goes.\n' >"${work}/other.md"
+ssh-keygen -q -Y sign -f "${work}/other_key" -n map-approval "${work}/other.md" 2>/dev/null
+cat "${work}/other.md.sig" >>"${work}/other.md"
+check_status "verify.sh rejects a signature by another key" 1 run verify.sh --file "${work}/other.md"
+printf 'Second decision.\n' >"${work}/decision-2.md"
+check "decide.sh --supersede marks the old decision" sh -c "'$test_shell' '${scripts}/decide.sh' --supersede '$(basename "$decision")' docs-releases-v2 '${work}/decision-2.md' >/dev/null 2>&1 && git show origin/coordination:'$decision' | grep -q '^superseded-by: '"
+check "verify.sh still accepts the superseded decision" run verify.sh "$decision"
+
 # Speed: a thousand messages pushed in one commit.
 bulk=$(mktemp -d "${work}/bulk.XXXXXX")
 git worktree add --quiet --detach "$bulk" origin/coordination

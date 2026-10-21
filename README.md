@@ -131,6 +131,7 @@ scripts/mark-read.sh api <message-file>      # after handling it
 scripts/claim.sh --hours 4 api fix-login     # exit 1: someone else has it
 scripts/status.sh --all
 scripts/doctor.sh                            # layout, immutable messages, stale claims
+scripts/verify.sh decisions/<file>          # is this approval really signed by the owner?
 ```
 
 Tools that have their own messaging between sessions can use it for speed, but handovers,

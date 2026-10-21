@@ -24,6 +24,8 @@ Scripts (`S=${CLAUDE_PLUGIN_ROOT}/scripts`):
 | Release a claim | `$S/release-claim.sh <line> <task-slug>`; `--stale` only after a heads-up |
 | Remember this worktree's line name | `$S/set-line.sh <line>` (enables the session-start summary); `$S/set-line.sh` prints it |
 | Session-start summary | `$S/session-start.sh` (unread messages and claims; silent without a line name) |
+| Record an owner decision | `$S/decide.sh [--supersede <old>] <topic> <file>` (only for decisions the owner actually made) |
+| Check an owner signature | `$S/verify.sh decisions/<file>` or `$S/verify.sh messages/<file>`; exit 0 and the owner's name means signed (PROTOCOL.md 3.6) |
 | Check the branch | `$S/doctor.sh` |
 
 Start of session, as line `<line>` (PROTOCOL.md 5.3):

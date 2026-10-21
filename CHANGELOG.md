@@ -5,6 +5,16 @@ The protocol, the scripts and the Claude Code plugin share one version number, f
 minor version adds rules, roles or tools, and a patch fixes wording or bugs.
 `PROTOCOL.md` states the protocol version as `MAJOR.MINOR`.
 
+## 1.3.0 - unreleased
+
+### Added
+
+- Signed owner records (PROTOCOL.md 3.6): owner decisions and messages signed with the
+  owner's SSH key (`ssh-keygen -Y`, namespace `map-approval`) count as direct approval;
+  keys are listed in the agent rules file on the main branch.
+- `scripts/decide.sh` records decisions (with `--supersede`), `scripts/verify.sh` checks
+  owner signatures.
+
 ## 1.2.0 - 2026-10-21
 
 ### Added
