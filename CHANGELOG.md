@@ -18,11 +18,11 @@ minor version adds rules, roles or tools, and a patch fixes wording or bugs.
   print unread messages and active claims at session start.
 - Claude Code plugin: an opt-in SessionStart hook that runs `session-start.sh` when the
   checkout has a line name; silent otherwise.
-- `CHANGELOG.md` and `docs/RELATED-WORK.md` (moved out of the README).
+- `CHANGELOG.md`.
 
 ### Changed
 
-- README: redrawn role diagram; related work moved to its own page.
+- README: redrawn role diagram; related-work section removed.
 
 ## 1.1.0 - 2026-10-21
 

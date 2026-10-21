@@ -194,12 +194,6 @@ pushes, and checks every script, including the doctor catching an edited message
 ([.github/workflows/check.yml](.github/workflows/check.yml)) runs it on Linux (dash and bash)
 and macOS, plus ShellCheck and `claude plugin validate --strict`.
 
-## Related work
-
-This protocol is a governance layer meant to sit on top of orchestrators, not to replace
-them. See [docs/RELATED-WORK.md](docs/RELATED-WORK.md) for the projects it borrows ideas
-from and how it differs.
-
 ## License
 
 [MIT](LICENSE) © 2026 Xuehan Gao
