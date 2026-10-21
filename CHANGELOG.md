@@ -9,6 +9,12 @@ minor version adds rules, roles or tools, and a patch fixes wording or bugs.
 
 ### Added
 
+- Joining and environment (PROTOCOL.md 5.5): each session describes its tool, model,
+  machine label, sandbox and network access, and what it can and cannot run in its status
+  file, and announces itself with a `joined` heads-up (`templates/joined.md`). Privacy
+  rules: machine labels instead of host names, no IP addresses, user names or secrets;
+  `doctor.sh` warns about missing environment fields and likely private details.
+  Claims moved to 5.6.
 - Profiles (PROTOCOL.md 12.1): a minimal profile for one owner and two or three sessions,
   and the full profile with the conditions for moving up.
 - Several owners (PROTOCOL.md 3.5): approval scopes per owner in the role table.

@@ -40,11 +40,11 @@ Rules:
 Roles are not limited to one session each, and the list above is not closed.
 
 - **Every session has its own line name**, even when it shares a role (for example `release-a` and `release-b`). Status files, claims and messages are keyed by line name, so two sessions MUST NOT use the same one. Each status file names the session's role (`Role:`), so a message addressed to a role reaches every session that holds it.
-- **Messages to a shared role.** When several sessions hold the role a message is addressed to, the first one to claim `msg-<timestamp>-<from>` (5.5) handles the message; the others mark it read without acting on it.
+- **Messages to a shared role.** When several sessions hold the role a message is addressed to, the first one to claim `msg-<timestamp>-<from>` (5.6) handles the message; the others mark it read without acting on it.
 - **Lines run in parallel by design.** A project MAY have any number of lines, each with its own name, branch prefix and area.
 - **Builders and reviewers MAY run in parallel**, each on its own task, worktree and branch (builders) or detached worktree (reviewers).
 - **Several leads** MAY split the work by area. The role table names which lead is the owner's routine contact and which lead owns each shared contract; a contract has exactly one owning lead.
-- **Several release sessions** MAY prepare releases in parallel (review, merge, verify), but advancing the main branch and deploying are serialized: a release session MUST hold the claim `release-main` (5.5) from step 7.7 to step 7.10, and MUST merge the current main branch and rerun the checks if main moved since its verification.
+- **Several release sessions** MAY prepare releases in parallel (review, merge, verify), but advancing the main branch and deploying are serialized: a release session MUST hold the claim `release-main` (5.6) from step 7.7 to step 7.10, and MUST merge the current main branch and rerun the checks if main moved since its verification.
 - **Project roles.** A project MAY add roles (for example tester, documentation, security audit, data migration, design). Each added role is a row in the role table with what it holds, what it may change, whom it reports to, and whether it talks to the owner. An added role follows sections 3 and 4 like any other, and does not get the powers this protocol reserves: only the owner approves (3), only the release role advances the main branch (4), and a role that reviews or audits changes nothing and starts no agents (9).
 
 ## 3. Authority
@@ -106,7 +106,7 @@ The protocol assumes one owner. A project with several human owners lists them i
 README.md                                   what this branch is; points to the protocol
 status/<line>.md                            one file per line, changed only by that line
 messages/<UTC timestamp>_<from>_<type>.md   one file per message, never changed after push
-claims/<task-slug>.md                       one file per claimed task (5.5)
+claims/<task-slug>.md                       one file per claimed task (5.6)
 decisions/<YYYY-MM-DD>_<topic>.md           owner decisions and standing authorizations that affect several lines
 ```
 
@@ -114,7 +114,7 @@ decisions/<YYYY-MM-DD>_<topic>.md           owner decisions and standing authori
 - Timestamps are `YYYYMMDDTHHMMSSZ` in UTC. If a name is already taken, wait a second and take a new timestamp. The timestamp is for people; the order that counts is the order in which messages were pushed, which the branch history records and which does not depend on any machine's clock.
 - A message file is immutable once pushed. A correction is a new message that references the old one.
 - Pull before writing; on a rejected push, pull with rebase and retry. Never create a merge commit on this branch: the message order is the branch history. Messages never conflict, because each is a new file.
-- Each status file follows `templates/status.md`. Its `Last-read` field names the last message the line has fully handled. Act on a message first and advance `Last-read` after, so an interrupted session redoes work instead of losing it.
+- Each status file follows `templates/status.md`. It has an `Environment` section (5.5). Its `Last-read` field names the last message the line has fully handled. Act on a message first and advance `Last-read` after, so an interrupted session redoes work instead of losing it.
 - A decision that is replaced gets a line `superseded-by: <file>`; it is never deleted.
 
 ### 5.3 When to read and write
@@ -122,7 +122,7 @@ decisions/<YYYY-MM-DD>_<topic>.md           owner decisions and standing authori
 - Read the coordination branch at session start, before taking a task, before and after merging into the main branch, and at least hourly during long tasks.
 - At session start, read in this order: your role, the latest `decisions/`, unread messages addressed to you, to your role or to `all`, active claims, and the other lines' status.
 - An agent without push notifications SHOULD check on a timer, with a cheap check first (`scripts/inbox.sh <line>`, no model call), and wake the model only when something is new.
-- Update your status when you start or finish a task and when your declared area changes.
+- Update your status when you start or finish a task and when your declared area changes. Keep its `Environment` section current (5.5).
 - Announce an interface change (function signatures, API fields, file formats, configuration keys, shared selectors) with a `heads-up` **before** merging it, and keep reading the old form where feasible.
 
 ### 5.4 Message types
@@ -147,7 +147,17 @@ refs: <earlier message files, optional>
 
 A message MUST be self-contained: the receiver has none of the sender's conversation. Include paths, commit SHAs and commands, never "as discussed".
 
-### 5.5 Claims
+### 5.5 Joining and environment
+
+Other sessions plan around what each session can do, so every session describes its environment.
+
+- When a session joins, it fills in the `Environment` section of its status file (`templates/status.md`): agent tool and version, model, the machine label and operating system, sandbox and network access, what it can and cannot run, and how others reach it. It then sends a `heads-up` to `all` (`templates/joined.md`).
+- It updates the section, and sends another `heads-up`, when any of this changes: a new tool or model, another machine, different sandbox or network access.
+- A session reports what it can actually observe or check (for example by running the tool's version command) and writes `unknown` for anything else. It MUST NOT guess.
+- **Privacy.** The coordination branch may be read by everyone with access to the repository. The environment section names a machine by a label the owner chose, never by host name, IP address, user name or a path that contains personal names, and it never contains credentials, tokens, keys or the contents of configuration files.
+- Before assigning work, the lead or a line checks that the receiver can do it, for example that it can push, run the end-to-end checks, or reach the data the task needs.
+
+### 5.6 Claims
 
 A claim says "this line is doing this task", so that two lines do not start the same work.
 
@@ -257,6 +267,7 @@ Everything else is RECOMMENDED. In particular, the coordination branch MAY be re
 3. Create the coordination branch: `scripts/init-coordination.sh`.
 4. Record any standing authorizations the owner grants (3.3).
 5. Start each session with its role, for example: "You are the release role in this project; follow PROTOCOL.md."
+6. When a session joins, it fills in its status file, including its environment, and announces itself with a `heads-up` (5.5).
 
 The setup commit (the rules snippet and any vendored files) is the project's first release: the owner merges it into the main branch, or approves the agent doing so, before the other sessions start, so that every session reads the same rules.
 

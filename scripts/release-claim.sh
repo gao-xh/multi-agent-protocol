@@ -1,5 +1,5 @@
 #!/bin/sh
-# Release a claim by deleting its file (PROTOCOL.md 5.5).
+# Release a claim by deleting its file (PROTOCOL.md 5.6).
 # Usage: release-claim.sh [--stale] <line> <task-slug>
 #   --stale  release another line's claim that is past its expires time
 #            (send a heads-up naming the stale claim first)

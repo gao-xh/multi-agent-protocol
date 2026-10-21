@@ -1,6 +1,6 @@
 #!/bin/sh
 # Check the coordination branch: layout, message names and headers, immutable
-# messages, status files and claims (PROTOCOL.md 5.2 to 5.5). Read-only.
+# messages, status files and claims (PROTOCOL.md 5.2 to 5.6). Read-only.
 # Usage: doctor.sh [--no-fetch]
 # Exit status: 0 when there are no errors (warnings allowed), 1 on errors, 2 if it cannot run.
 set -u
@@ -108,6 +108,14 @@ for path in $(git ls-tree --name-only "$ref" status/); do
     for field in Role Branch Task State Last-read Updated; do
         [ -n "$(printf '%s\n' "$content" | status_value "$field")" ] || error "${path}: missing or empty '- ${field}:'"
     done
+    for field in Agent Model Machine Sandbox "Can run" "Reachable by"; do
+        [ -n "$(printf '%s\n' "$content" | status_value "$field")" ] ||
+            warn "${path}: environment field '- ${field}:' is missing (PROTOCOL.md 5.5)"
+    done
+    # Privacy (5.5): no IP addresses or home-directory paths with user names.
+    if printf '%s\n' "$content" | grep -Eq '(^|[^0-9.])([0-9]{1,3}\.){3}[0-9]{1,3}([^0-9.]|$)|/Users/[^/[:space:]]+|/home/[^/[:space:]]+|[A-Za-z]:\\Users\\'; then
+        warn "${path}: looks like it contains an IP address or a home-directory path; use a machine label instead (PROTOCOL.md 5.5)"
+    fi
     last_read=$(printf '%s\n' "$content" | status_value Last-read)
     last_read=${last_read#messages/}
     case "$last_read" in

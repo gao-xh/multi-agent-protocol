@@ -115,7 +115,9 @@ claims/<task-slug>.md                       who is doing which task, with a leas
 decisions/<YYYY-MM-DD>_<topic>.md           owner decisions and standing authorizations
 ```
 
-Messages are new files, so they never conflict. Each line keeps a `Last-read` pointer in its
+When a session joins, its status file describes its environment (tool, model, a machine
+label, sandbox and network access, what it can and cannot run) and it announces itself to
+all, so the others know what to hand it. Messages are new files, so they never conflict. Each line keeps a `Last-read` pointer in its
 status file and advances it only after acting on a message, so an interrupted session redoes
 work instead of losing it. Agents without push notifications poll with `inbox.sh`, which
 makes no model call and exits 1 when there is nothing new.

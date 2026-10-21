@@ -1,5 +1,5 @@
 #!/bin/sh
-# Claim a task, or renew your own claim (PROTOCOL.md 5.5).
+# Claim a task, or renew your own claim (PROTOCOL.md 5.6).
 # Usage: claim.sh [--hours N] [--branch BRANCH] <line> <task-slug>
 #   --hours N        lease length in hours (default 4); rerunning renews the lease
 #   --branch BRANCH  branch the work happens on (default: the current branch)

@@ -28,6 +28,7 @@ Scripts (`S=${CLAUDE_PLUGIN_ROOT}/scripts`):
 
 Start of session, as line `<line>` (PROTOCOL.md 5.3):
 
+0. First session of this line, or anything in your environment changed (tool, model, machine, sandbox, network)? Fill in or update the `Environment` section of your status file from `$S/../templates/status.md` (PROTOCOL.md 5.5), publish it with `$S/status.sh <line> <file>`, and send the `joined` heads-up (`$S/send.sh --template joined`). Report only what you can check; write `unknown` otherwise; no host names, IP addresses, user names or secrets.
 1. `$S/status.sh --decisions`: read the owner decisions, newest first.
 2. `$S/inbox.sh --show <line>`: handle each message in order; after each one, `$S/mark-read.sh <line> <message>`.
 3. `$S/status.sh --all` and `$S/status.sh --claims`: who is doing what.

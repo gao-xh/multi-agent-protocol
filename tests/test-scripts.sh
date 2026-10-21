@@ -134,6 +134,16 @@ check "mark-read --force moves backwards" run mark-read.sh --force api "$q1"
 check "mark-read --force moves forward again" run mark-read.sh --force api "$q2"
 cd "${work}/lead" || exit 2
 
+# Environment section and privacy checks.
+check "the joined template is available" sh -c "'$test_shell' '${scripts}/send.sh' --template joined | grep -q '^type: heads-up'"
+sed -e 's/<line>/env-test/' -e 's/^- Machine:.*/- Machine: build box at 10.0.0.12/' "${repo_root}/templates/status.md" >"${work}/env-status.md"
+check "a status with an IP address can be published" run status.sh env-test "${work}/env-status.md"
+check "doctor warns about the IP address" sh -c "'$test_shell' '${scripts}/doctor.sh' | grep -q 'env-test.md: looks like it contains an IP address'"
+grep -v '^- Agent:' "${work}/env-status.md" | sed 's/^- Machine:.*/- Machine: laptop; macOS/' >"${work}/env-status-2.md"
+check "a status without Agent can be published" run status.sh env-test "${work}/env-status-2.md"
+check "doctor warns about the missing Agent field" sh -c "'$test_shell' '${scripts}/doctor.sh' | grep -q 'env-test.md: environment field'"
+check "doctor no longer warns about privacy" sh -c "! '$test_shell' '${scripts}/doctor.sh' | grep -q 'env-test.md: looks like'"
+
 # Parallel release sessions take turns on the main branch.
 check "release-a takes release-main" run claim.sh release-a release-main
 cd "${work}/api" || exit 2

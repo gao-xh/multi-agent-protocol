@@ -18,6 +18,9 @@ Short version (the protocol wins if this summary disagrees):
   file), `mark-read.sh` (after you have handled a message), `doctor.sh` (checks).
 - At session start: read your role below, recent `decisions/`, your inbox, active claims
   and the other lines' status. Announce interface changes with a `heads-up` before merging.
+- When you join, describe your environment in your status file (tool, model, machine label,
+  sandbox and network, what you can run) and send the `joined` heads-up; no host names, IP
+  addresses or secrets.
 - "Done" means a pushed commit SHA plus the checks you actually ran and their results.
 
 ### Profile and owners

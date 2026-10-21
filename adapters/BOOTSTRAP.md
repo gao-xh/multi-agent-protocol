@@ -34,6 +34,7 @@ Set up this project for multi-agent collaboration with the Multi-Agent Protocol.
      scripts/install.sh <project> from the clone, which copies it into
      tools/multi-agent-protocol/) or to reference the URL;
    - the checks to run before a release request, and the release command, if any;
+   - a short label for this machine (for example "laptop"), used instead of its host name;
    - which line you are.
    Do not continue until I answer. Changing the agent rules file needs my approval.
 
@@ -46,15 +47,19 @@ Set up this project for multi-agent collaboration with the Multi-Agent Protocol.
    - This setup commit is the project's first release: ask me to merge it into the main
      branch (or to let you do it) before other sessions start, so they read the same rules.
    - Run scripts/init-coordination.sh (it does nothing if the branch exists).
-   - Fill in templates/status.md for your line and publish it with
-     scripts/status.sh <line> <file>.
+   - Fill in templates/status.md for your line, including the Environment section
+     (PROTOCOL.md 5.5): your tool and version (run its version command), your model, the
+     machine label I give you, sandbox and network access, what you can and cannot run,
+     and how others reach you. Write "unknown" rather than guess; no host names, IP
+     addresses, user names or secrets. Publish it with scripts/status.sh <line> <file>,
+     then announce yourself: scripts/send.sh --template joined, fill it in, send it.
    - Record the standing authorizations I gave, word for word, in the snippet's table.
    - Run scripts/doctor.sh and fix anything it reports.
    - Optionally store your line name with scripts/set-line.sh <line>, so that
      scripts/session-start.sh (or the Claude Code plugin hook) can summarize the inbox at
      the start of later sessions.
 
-5. Report: what you changed (files, branches, commits), the doctor output, and the
+5. Report: what you changed (files, branches, commits), your Environment section, the doctor output, and the
    one-line role prompt I should give each other session, for example:
    "You are line <name> in this project; follow the Multi-Agent Protocol in AGENTS.md."
 ```

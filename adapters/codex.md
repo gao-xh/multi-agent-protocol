@@ -108,3 +108,21 @@ coordination branch as well.
   tighten the parent's sandbox, a reviewer subagent can still write if its parent can: for
   a strictly read-only review, run the reviewer as its own session with
   `--sandbox read-only`.
+
+## 7. Describing a Codex session's environment
+
+When a Codex session joins (PROTOCOL.md 5.5), its status file could read, for example:
+
+```
+- Agent: Codex CLI <output of codex --version>
+- Model: <model shown by Codex for this session, or "unknown">
+- Machine: laptop; macOS 26.6
+- Sandbox: workspace-write; network: no (pushes need approval)
+- Can run: unit tests
+- Cannot: push to the coordination branch without approval; reach the production server
+- Reachable by: coordination branch only; checks the inbox every 15 minutes (cron)
+```
+
+The sandbox and network values matter most: with network off, the session cannot push
+its status or messages without an approval (section 2), so other sessions should not
+expect a quick reply from it.
