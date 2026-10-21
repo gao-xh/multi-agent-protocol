@@ -1,0 +1,13 @@
+{
+  "name": "multi-agent-protocol",
+  "version": "1.0.0",
+  "description": "Governance and release protocol for several AI coding agents working on one project for one owner: roles, owner authority, isolation, a git-based coordination branch, and a strict release role.",
+  "author": {
+    "name": "Xuehan Gao",
+    "url": "https://github.com/gao-xh"
+  },
+  "homepage": "https://github.com/gao-xh/multi-agent-protocol",
+  "repository": "https://github.com/gao-xh/multi-agent-protocol",
+  "license": "MIT",
+  "keywords": ["multi-agent", "coordination", "governance", "release", "codex", "agents-md"]
+}

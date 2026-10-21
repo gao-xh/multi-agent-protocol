@@ -1,0 +1,15 @@
+{
+  "name": "gao-xh-agents",
+  "description": "Plugins by Xuehan Gao for working with AI coding agents.",
+  "owner": {
+    "name": "Xuehan Gao",
+    "url": "https://github.com/gao-xh"
+  },
+  "plugins": [
+    {
+      "name": "multi-agent-protocol",
+      "source": "./",
+      "description": "Roles (lead, line, release), a coordination branch with scripts, and builder and reviewer agents for multi-agent projects."
+    }
+  ]
+}
