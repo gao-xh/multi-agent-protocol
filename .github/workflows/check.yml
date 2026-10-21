@@ -1,0 +1,52 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scripts:
+    name: scripts (${{ matrix.os }}, ${{ matrix.shell }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, shell: sh }    # dash
+          - { os: ubuntu-latest, shell: bash }
+          - { os: macos-latest, shell: sh }     # bash 3.2 in POSIX mode
+    steps:
+      - uses: actions/checkout@v5
+      - name: Syntax check
+        run: for script in scripts/*.sh tests/*.sh; do ${{ matrix.shell }} -n "$script"; done
+      - name: End-to-end test
+        run: tests/test-scripts.sh ${{ matrix.shell }}
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: ShellCheck (POSIX sh)
+        # SC1091: lib.sh is sourced through a path computed at run time.
+        run: shellcheck --shell=sh --severity=warning --exclude=SC1091 scripts/*.sh tests/*.sh
+
+  plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Install Claude Code
+        run: npm install --global @anthropic-ai/claude-code
+      - name: Validate marketplace, plugin, skills and agents
+        run: |
+          claude plugin validate --strict ./
+          claude plugin validate --strict .claude-plugin/plugin.json
+          claude plugin validate --strict skills
+          claude plugin validate --strict agents
