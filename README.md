@@ -1,5 +1,7 @@
 # Multi-Agent Protocol
 
+[![check](https://github.com/gao-xh/multi-agent-protocol/actions/workflows/check.yml/badge.svg)](https://github.com/gao-xh/multi-agent-protocol/actions/workflows/check.yml)
+
 [中文说明](README.zh-CN.md)
 
 A governance and release protocol for several AI coding agents (Claude Code, Codex and
@@ -66,8 +68,14 @@ flowchart TB
     release -->|released / returned| board
 ```
 
-One session may hold several roles in a small project. The roles, and which tool runs each
-one, are listed in a table in the project's `AGENTS.md`.
+Roles are responsibilities, not processes. One session may hold several roles in a small
+project; in a larger one any role can run as several parallel sessions (many lines,
+builders and reviewers at once; several leads split by area; several release sessions that
+take turns on the main branch through a claim). A project can also add its own roles, such
+as tester, documentation or security audit, as long as they keep the reserved powers
+intact: only the owner approves and only the release role moves the main branch
+([PROTOCOL.md 2.1](PROTOCOL.md#21-parallel-sessions-and-project-roles)). The roles, and
+which tool runs each one, are listed in a table in the project's `AGENTS.md`.
 
 ## How agents talk
 
@@ -138,7 +146,9 @@ tests/test-scripts.sh dash   # with another POSIX shell
 ```
 
 The test builds a throwaway repository with a local bare remote, two clones and concurrent
-pushes, and checks every script, including the doctor catching an edited message.
+pushes, and checks every script, including the doctor catching an edited message. CI
+([.github/workflows/check.yml](.github/workflows/check.yml)) runs it on Linux (dash and bash)
+and macOS, plus ShellCheck and `claude plugin validate --strict`.
 
 ## Related work
 

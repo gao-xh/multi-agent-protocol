@@ -103,6 +103,17 @@ check "lead releases the stale claim with --stale" run release-claim.sh --stale 
 check "lead releases its own claim" run release-claim.sh lead fix-login
 check "claims folder is empty again" sh -c "[ -z \"\$(git ls-tree --name-only origin/coordination claims/ | grep -v gitkeep)\" ]"
 
+# Parallel release sessions take turns on the main branch.
+check "release-a takes release-main" run claim.sh release-a release-main
+cd "${work}/api" || exit 2
+check_status "release-b must wait for release-main" 1 run claim.sh release-b release-main
+cd "${work}/lead" || exit 2
+check "release-a hands back release-main" run release-claim.sh release-a release-main
+cd "${work}/api" || exit 2
+check "release-b takes release-main next" run claim.sh release-b release-main
+check "release-b hands back release-main" run release-claim.sh release-b release-main
+cd "${work}/lead" || exit 2
+
 # Doctor catches an edited message.
 check "doctor passes before tampering" run doctor.sh
 tamper=$(mktemp -d "${work}/tamper.XXXXXX")

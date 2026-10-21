@@ -1,6 +1,6 @@
 # Multi-Agent Protocol
 
-Version 1.0.
+Version 1.1.
 
 A protocol for several AI coding agents that work on one project in parallel, on behalf of one human owner. The agents may be separate sessions of different tools (Claude Code, Codex, others) on different machines. The protocol covers who decides, how work is kept apart, how agents hand work to each other, and how a change reaches production. It does not run agents: use it with any orchestrator, or with plain terminal sessions.
 
@@ -16,7 +16,7 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are used as in RFC 2119
 
 ## 2. Roles
 
-A role is a responsibility, not a process. In a small project one session MAY hold several roles; in a large one several sessions MAY hold the same role. The project's agent rules file lists which session holds which role (see `adapters/AGENTS.md.snippet`).
+A role is a responsibility, not a process. In a small project one session MAY hold several roles; in a large one several sessions MAY hold the same role (2.1). The project's agent rules file lists which session holds which role (see `adapters/AGENTS.md.snippet`).
 
 | Role | Holds | Talks to the owner |
 | --- | --- | --- |
@@ -34,6 +34,17 @@ Rules:
 - The lead does its own edits on its own branch and worktree, like everyone else.
 - Builders and reviewers report and stop; they do not wait around for more work.
 - Reviewers MUST NOT start further agents.
+
+### 2.1 Parallel sessions and project roles
+
+Roles are not limited to one session each, and the list above is not closed.
+
+- **Every session has its own line name**, even when it shares a role (for example `release-a` and `release-b`). Status files, claims and messages are keyed by line name, so two sessions MUST NOT use the same one.
+- **Lines run in parallel by design.** A project MAY have any number of lines, each with its own name, branch prefix and area.
+- **Builders and reviewers MAY run in parallel**, each on its own task, worktree and branch (builders) or detached worktree (reviewers).
+- **Several leads** MAY split the work by area. The role table names which lead is the owner's routine contact and which lead owns each shared contract; a contract has exactly one owning lead.
+- **Several release sessions** MAY prepare releases in parallel (review, merge, verify), but advancing the main branch and deploying are serialized: a release session MUST hold the claim `release-main` (5.5) from step 7.7 to step 7.10, and MUST merge the current main branch and rerun the checks if main moved since its verification.
+- **Project roles.** A project MAY add roles (for example tester, documentation, security audit, data migration, design). Each added role is a row in the role table with what it holds, what it may change, whom it reports to, and whether it talks to the owner. An added role follows sections 3 and 4 like any other, and does not get the powers this protocol reserves: only the owner approves (3), only the release role advances the main branch (4), and a role that reviews or audits changes nothing and starts no agents (9).
 
 ## 3. Authority
 

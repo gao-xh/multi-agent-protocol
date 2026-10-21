@@ -25,7 +25,14 @@ Short version (the protocol wins if this summary disagrees):
 | --- | --- | --- | --- | --- |
 | lead | lead | <e.g. Claude Code, laptop> | `lead/` | architecture, shared contracts, review |
 | <name> | line | <e.g. Codex CLI> | `<name>/` | <directories or modules> |
+| <name-2> | line | <tool> | `<name-2>/` | <another area; add a row per parallel line> |
 | release | release | <tool> | `release` | release branch, deployment, release log |
+| <tester> | <project role, e.g. tester> | <tool> | <none, or prefix> | <what it holds, may change, reports to> |
+
+Any role may have several rows (parallel sessions, each with its own line name such as
+`release-a`), and the project may add its own roles;
+see PROTOCOL.md 2.1. Only the release role advances `MAIN_BRANCH`, and parallel release
+sessions take turns with the claim `release-main`.
 
 ### Standing authorizations
 
