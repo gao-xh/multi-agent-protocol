@@ -124,6 +124,23 @@ git -C "$tamper" commit --quiet -am "edit a message" && git -C "$tamper" push --
 git worktree remove --force "$tamper"
 check_status "doctor reports the edited message" 1 run doctor.sh
 
+# Session-start summary and line names.
+check "session-start is silent without a line" sh -c "[ -z \"\$('$test_shell' '${scripts}/session-start.sh')\" ]"
+check "set-line stores the line name" run set-line.sh api
+check "set-line prints it back" sh -c "[ \"\$('$test_shell' '${scripts}/set-line.sh' 2>/dev/null)\" = api ]"
+check "session-start reports unread messages" sh -c "'$test_shell' '${scripts}/session-start.sh' | grep -q 'unread coordination message'"
+check "MAP_LINE overrides the stored name" sh -c "MAP_LINE=lead '$test_shell' '${scripts}/session-start.sh' | grep -q 'line \"lead\"'"
+check "set-line --clear forgets it" run set-line.sh --clear
+
+# Install into another project.
+mkdir -p "${work}/other"
+check "install copies the protocol into a project" run install.sh "${work}/other"
+check "installed scripts are executable" test -x "${work}/other/tools/multi-agent-protocol/scripts/inbox.sh"
+check "installed copy has templates and VERSION" sh -c "[ -f '${work}/other/tools/multi-agent-protocol/templates/handover.md' ] && grep -q '^Multi-Agent Protocol [0-9]' '${work}/other/tools/multi-agent-protocol/VERSION'"
+check "installed send.sh finds its templates" sh -c "'$test_shell' '${work}/other/tools/multi-agent-protocol/scripts/send.sh' --template handover | grep -q '^type: handover'"
+check "install updates an earlier copy" sh -c "'$test_shell' '${scripts}/install.sh' '${work}/other' 2>&1 | grep -q updated"
+check_status "install refuses a path outside the project" 2 run install.sh --dest ../x "${work}/other"
+
 check "no temporary worktrees are left behind" sh -c "[ \"\$(git worktree list | wc -l | tr -d ' ')\" = 1 ]"
 
 printf '\n%s failure(s) with %s\n' "$failures" "$test_shell"

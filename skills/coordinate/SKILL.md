@@ -1,7 +1,7 @@
 ---
 name: coordinate
 description: Read and write the Multi-Agent Protocol coordination branch - check the inbox, send templated messages (handover, release-request, released, returned, heads-up, question, answer), claim or release tasks, publish status, and run the doctor. Use at session start, before taking a task, when another agent needs to be told something, or when the user asks what other agents have said.
-argument-hint: "[inbox|send|claim|release-claim|status|doctor] [line]"
+argument-hint: "[inbox|send|claim|release-claim|status|set-line|doctor] [line]"
 allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/*)
 ---
 
@@ -21,6 +21,8 @@ Scripts (`S=${CLAUDE_PLUGIN_ROOT}/scripts`):
 | Show or publish status | `$S/status.sh <line>`, `$S/status.sh <line> <file>`, `$S/status.sh --all` |
 | Claim or renew a task | `$S/claim.sh [--hours N] [--branch B] <line> <task-slug>`. Exit 1 means taken |
 | Release a claim | `$S/release-claim.sh <line> <task-slug>`; `--stale` only after a heads-up |
+| Remember this worktree's line name | `$S/set-line.sh <line>` (enables the session-start summary); `$S/set-line.sh` prints it |
+| Session-start summary | `$S/session-start.sh` (unread messages and claims; silent without a line name) |
 | Check the branch | `$S/doctor.sh` |
 
 Start of session, as line `<line>` (PROTOCOL.md 5.3):
@@ -29,6 +31,8 @@ Start of session, as line `<line>` (PROTOCOL.md 5.3):
 2. `$S/inbox.sh --show <line>`: handle each message in order; after each one, `$S/mark-read.sh <line> <message>`.
 3. `$S/status.sh --all` and `git ls-tree --name-only origin/coordination claims/`: who is doing what.
 4. Publish your own status if it changed.
+5. If `$S/set-line.sh` prints nothing, offer the user to store this worktree's line name, so that later sessions here start with a summary.
+
 
 Writing messages:
 

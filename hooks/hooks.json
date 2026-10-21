@@ -1,0 +1,17 @@
+{
+  "description": "Multi-Agent Protocol: when this checkout has a line name (MAP_LINE or set-line.sh), show unread coordination messages at session start. Does nothing otherwise.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/session-start.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
