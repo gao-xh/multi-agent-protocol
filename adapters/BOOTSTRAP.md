@@ -20,11 +20,14 @@ Set up this project for multi-agent collaboration with the Multi-Agent Protocol.
    - Is there a vendored copy of the protocol's scripts/ and templates/?
 
 3. Ask me, in one batched message, with a recommendation for each:
+   - the profile: minimal (one owner, two or three sessions) or full (PROTOCOL.md 12.1),
+     and whether there is more than one owner (PROTOCOL.md 3.5);
    - the lines and roles (who is lead, which lines exist, who releases, which tool and
      branch prefix each uses, and which area each owns);
    - any standing authorizations I want to grant, with scope and exclusions;
-   - whether to vendor the protocol into the repository (recommended: copy PROTOCOL.md,
-     scripts/ and templates/ into tools/multi-agent-protocol/) or to reference the URL;
+   - whether to vendor the protocol into the repository (recommended: run
+     scripts/install.sh <project> from the clone, which copies it into
+     tools/multi-agent-protocol/) or to reference the URL;
    - the checks to run before a release request, and the release command, if any;
    - which line you are.
    Do not continue until I answer. Changing the agent rules file needs my approval.
@@ -34,12 +37,15 @@ Set up this project for multi-agent collaboration with the Multi-Agent Protocol.
      (only once; update the block if it is already there), with the table filled in and
      PROTOCOL_PATH, SCRIPTS_PATH and MAIN_BRANCH replaced. If the project uses both
      AGENTS.md and CLAUDE.md, put the block in AGENTS.md and make CLAUDE.md point to it.
-   - If I chose vendoring, copy the files and commit them on your own branch.
+   - If I chose vendoring, run scripts/install.sh and commit the copy on your own branch.
    - Run scripts/init-coordination.sh (it does nothing if the branch exists).
    - Fill in templates/status.md for your line and publish it with
      scripts/status.sh <line> <file>.
    - Record the standing authorizations I gave, word for word, in the snippet's table.
    - Run scripts/doctor.sh and fix anything it reports.
+   - Optionally store your line name with scripts/set-line.sh <line>, so that
+     scripts/session-start.sh (or the Claude Code plugin hook) can summarize the inbox at
+     the start of later sessions.
 
 5. Report: what you changed (files, branches, commits), the doctor output, and the
    one-line role prompt I should give each other session, for example:

@@ -1,6 +1,6 @@
 # Multi-Agent Protocol
 
-Version 1.1.
+Version 1.2.
 
 A protocol for several AI coding agents that work on one project in parallel, on behalf of one human owner. The agents may be separate sessions of different tools (Claude Code, Codex, others) on different machines. The protocol covers who decides, how work is kept apart, how agents hand work to each other, and how a change reaches production. It does not run agents: use it with any orchestrator, or with plain terminal sessions.
 
@@ -73,6 +73,15 @@ The owner MAY grant a standing authorization, for example "release batches witho
 ### 3.4 Clarify before building
 
 When a request leaves real choices open (scope, behaviour, layout, data or cost), the agent SHOULD ask the owner before starting: batched, with concrete options and a recommendation. It SHOULD NOT ask again about decisions already recorded.
+
+### 3.5 Several owners
+
+The protocol assumes one owner. A project with several human owners lists them in the role table, each with the areas and kinds of action they approve (for example "Alice: releases and data; Bob: the mobile app"). Then:
+
+- Each approval comes from an owner whose scope covers it, directly in that owner's session with the agent. Everything in 3.1 to 3.3 applies per owner.
+- When scopes overlap or none covers an action, the agent asks the owners named for that case in the role table, or all of them; it never picks the most convenient one.
+- One owner relaying another owner's approval is a relay (3.1); the agent confirms with the owner whose scope it is.
+- Standing authorizations name the owner who granted them.
 
 ## 4. Isolation
 
@@ -225,8 +234,25 @@ Each of these happened in practice; the rules above exist because of them.
 
 ## 12. Adopting the protocol
 
-1. Add the rules snippet (`adapters/AGENTS.md.snippet`) to the project's agent rules file (`AGENTS.md`, `CLAUDE.md` or the tool's equivalent), and fill in its role table.
-2. Make the scripts and templates available: copy `scripts/` and `templates/` into the project, or run them from a clone of this repository. They act on the git repository of the current directory.
+### 12.1 Profiles
+
+A project starts with the profile that fits its size and MAY move up at any time.
+
+**Minimal profile**: one owner and two or three agent sessions, for example one lead and one or two lines, with the owner releasing by hand. These rules are REQUIRED:
+
+- owner authority: 3.1, 3.2, 3.3;
+- isolation: one branch and one working tree per session, and no force-push on shared branches (4);
+- self-contained handovers (5.4) and evidence-based reports (8);
+- the project's checks pass on the exact commit before it is merged into the main branch.
+
+Everything else is RECOMMENDED. In particular, the coordination branch MAY be replaced by handover files kept outside the development branches, and the release role MAY be the owner.
+
+**Full profile**: the whole protocol. Move to it when any of these holds: more than three sessions, sessions on more than one machine or in more than one tool, an agent that deploys, or more than one owner (3.5).
+
+### 12.2 Steps
+
+1. Add the rules snippet (`adapters/AGENTS.md.snippet`) to the project's agent rules file (`AGENTS.md`, `CLAUDE.md` or the tool's equivalent), choose the profile, and fill in the role table.
+2. Make the scripts and templates available: `scripts/install.sh <project>` copies them into the project (rerun it to update), or run them from a clone of this repository. They act on the git repository of the current directory.
 3. Create the coordination branch: `scripts/init-coordination.sh`.
 4. Record any standing authorizations the owner grants (3.3).
 5. Start each session with its role, for example: "You are the release role in this project; follow PROTOCOL.md."
