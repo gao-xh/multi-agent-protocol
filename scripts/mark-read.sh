@@ -4,6 +4,7 @@
 # Run it after acting on the message, not before.
 set -u
 PROG=mark-read.sh
+# shellcheck source=lib.sh
 . "$(dirname -- "$0")/lib.sh"
 
 case "${1:-}" in -h | --help) sed -n '2,4s/^# \{0,1\}//p' "$0"; exit 0 ;; esac

@@ -32,8 +32,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: ShellCheck (POSIX sh)
-        # SC1091: lib.sh is sourced through a path computed at run time.
-        run: shellcheck --shell=sh --severity=warning --exclude=SC1091 scripts/*.sh tests/*.sh
+        # lib.sh is checked through the scripts that source it (-x).
+        run: |
+          shellcheck --version
+          find scripts tests -name "*.sh" ! -name lib.sh -print0 |
+            xargs -0 shellcheck --shell=sh --severity=warning --external-sources --source-path=SCRIPTDIR
 
   plugin:
     runs-on: ubuntu-latest

@@ -7,6 +7,7 @@
 # existing "- Last-read:" value is kept if <file> leaves it empty or as a placeholder.
 set -u
 PROG=status.sh
+# shellcheck source=lib.sh
 . "$(dirname -- "$0")/lib.sh"
 
 case "${1:-}" in

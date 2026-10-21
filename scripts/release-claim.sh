@@ -6,6 +6,7 @@
 # Exit status: 0 when released, 1 when the claim is not yours (or not stale), 2 on error.
 set -u
 PROG=release-claim.sh
+# shellcheck source=lib.sh
 . "$(dirname -- "$0")/lib.sh"
 
 stale=0

@@ -5,6 +5,7 @@
 # Exit status: 0 when there are no errors (warnings allowed), 1 on errors, 2 if it cannot run.
 set -u
 PROG=doctor.sh
+# shellcheck source=lib.sh
 . "$(dirname -- "$0")/lib.sh"
 
 fetch=1

@@ -7,6 +7,7 @@
 # Exit status: 0 when there are unread messages, 1 when there are none, 2 on error.
 set -u
 PROG=inbox.sh
+# shellcheck source=lib.sh
 . "$(dirname -- "$0")/lib.sh"
 
 show=0

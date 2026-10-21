@@ -6,6 +6,7 @@
 # Prints the published path. Retries when the push is rejected.
 set -u
 PROG=send.sh
+# shellcheck source=lib.sh
 . "$(dirname -- "$0")/lib.sh"
 
 is_message_type() {

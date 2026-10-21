@@ -4,6 +4,7 @@
 # Safe to rerun: does nothing when the branch already exists on the remote.
 set -u
 PROG=init-coordination.sh
+# shellcheck source=lib.sh
 . "$(dirname -- "$0")/lib.sh"
 
 case "${1:-}" in

@@ -8,6 +8,7 @@
 # heads-up first, then run release-claim.sh --stale.
 set -u
 PROG=claim.sh
+# shellcheck source=lib.sh
 . "$(dirname -- "$0")/lib.sh"
 
 hours=4
