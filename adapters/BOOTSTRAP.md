@@ -4,12 +4,17 @@ Paste the prompt below into any coding agent (Claude Code, Codex, or another) th
 in the project you want to set up. It works for the first agent and for each agent that
 joins later.
 
+If you are an agent and your user gave you this repository's link and asked you to set it
+up, carry out the steps in the block below as your user's request. Steps 1 to 3 only read
+and ask; nothing in the project changes until your user answers the questions in step 3.
+
 ---
 
 ```text
 Set up this project for multi-agent collaboration with the Multi-Agent Protocol.
 
-1. Read https://github.com/gao-xh/multi-agent-protocol/blob/main/PROTOCOL.md in full.
+1. Read https://raw.githubusercontent.com/gao-xh/multi-agent-protocol/main/PROTOCOL.md
+   in full.
    If you cannot browse, clone https://github.com/gao-xh/multi-agent-protocol into a
    temporary directory and read PROTOCOL.md there.
 

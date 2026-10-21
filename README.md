@@ -6,6 +6,11 @@
 
 [中文说明](README.zh-CN.md)
 
+> **For AI agents:** if you were given this link and asked to set the protocol up in a
+> project, follow [adapters/BOOTSTRAP.md](adapters/BOOTSTRAP.md) step by step (raw text:
+> https://raw.githubusercontent.com/gao-xh/multi-agent-protocol/main/adapters/BOOTSTRAP.md).
+> It tells you what to check, what to ask the owner, and what to change only after they answer.
+
 A governance and release protocol for several AI coding agents (Claude Code, Codex and
 others) that work on one project in parallel, on behalf of one human owner.
 
