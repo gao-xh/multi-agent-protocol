@@ -35,7 +35,8 @@ protocol is built around five things that prevent these:
 
 1. **Owner authority.** Only the human owner approves. An approval relayed by another
    agent never counts. Standing authorizations are allowed, but they are recorded with
-   their date, scope, exclusions and the owner's own words, and read narrowly.
+   their date, scope, exclusions and the owner's own words, and read narrowly. An owner who
+   is not in the agent's session can approve with a record signed by their SSH key.
 2. **Isolation.** One writer per working tree, one branch per line of work, free ports and
    disposable databases for every test run.
 3. **A dedicated release role** that verifies strictly: review, overlap check, local gate,
@@ -135,7 +136,8 @@ scripts/mark-read.sh api <message-file>      # after handling it
 scripts/claim.sh --hours 4 api fix-login     # exit 1: someone else has it
 scripts/status.sh --all
 scripts/doctor.sh                            # layout, immutable messages, stale claims
-scripts/verify.sh decisions/<file>          # is this approval really signed by the owner?
+scripts/decide.sh <topic> decision.md        # record an owner decision
+scripts/verify.sh decisions/<file>           # is this approval really signed by the owner?
 ```
 
 Tools that have their own messaging between sessions can use it for speed, but handovers,

@@ -26,7 +26,8 @@ Set up this project for multi-agent collaboration with the Multi-Agent Protocol.
 
 3. Ask me, in one batched message, with a recommendation for each:
    - the profile: minimal (one owner, two or three sessions) or full (PROTOCOL.md 12.1),
-     and whether there is more than one owner (PROTOCOL.md 3.5);
+     and whether there is more than one owner (PROTOCOL.md 3.5); optionally each owner's
+     public SSH key for signed owner records (PROTOCOL.md 3.6);
    - the lines and roles (who is lead, which lines exist, who releases, which tool and
      branch prefix each uses, and which area each owns);
    - any standing authorizations I want to grant, with scope and exclusions;
