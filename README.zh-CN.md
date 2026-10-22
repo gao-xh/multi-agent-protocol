@@ -24,7 +24,7 @@
   /plugin install multi-agent-protocol@gao-xh-agents
   ```
   插件提供 `lead`、`line`、`release`、`coordinate` 四个技能，以及 `builder` 和只读的 `reviewer` 两个子 agent。
-- **任何 agent：** 把 [adapters/BOOTSTRAP.md](adapters/BOOTSTRAP.md) 里的提示词贴给它，它会读协议、问你角色分工和长期授权、在 `AGENTS.md` 里加上规则、建好协调分支。Codex 的注意事项见 [adapters/codex.md](adapters/codex.md)。
+- **任何 agent：** 把 [adapters/BOOTSTRAP.md](adapters/BOOTSTRAP.md) 里的提示词贴给它，它会读协议、问你角色分工和长期授权、在 `AGENTS.md` 里加上规则、建好协调分支。各工具的注意事项见 [Codex](adapters/codex.md)、[OpenCode](adapters/opencode.md) 和 [Aider](adapters/aider.md)。用较小或较便宜的模型（比如 DeepSeek 的快速版）时，再加上 [adapters/compact-rules.md](adapters/compact-rules.md) 里的简短会话卡片。
 - **手动：** clone 本仓库后运行 `scripts/install.sh <你的项目>`，它把协议、脚本和模板复制到项目的 `tools/multi-agent-protocol/`，以后重新运行即可更新；再把规则片段贴进项目的 `AGENTS.md`。
 
 可以从**最小配置**开始（一个负责人、两三个会话），只需遵守批准、隔离、交接和汇报几条规则；会话、机器、工具或负责人变多时，再升级到**完整配置**（见 PROTOCOL.md 12.1）。多个负责人共同管理时，按 PROTOCOL.md 3.5 在角色表里写明每个人的批准范围。

@@ -5,6 +5,16 @@ The protocol, the scripts and the Claude Code plugin share one version number, f
 minor version adds rules, roles or tools, and a patch fixes wording or bugs.
 `PROTOCOL.md` states the protocol version as `MAJOR.MINOR`.
 
+## 1.3.1 - 2026-10-21
+
+### Added
+
+- `adapters/opencode.md` and `adapters/aider.md`: rules files, permissions or git
+  behaviour, model choice (including DeepSeek), non-interactive runs, inbox polling and an
+  environment example for each tool.
+- `adapters/compact-rules.md`: how to assign work to smaller or cheaper models, and a
+  short session card of exact script commands for their rules or first prompt.
+
 ## 1.3.0 - 2026-10-21
 
 ### Added

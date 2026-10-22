@@ -29,7 +29,8 @@ Set up this project for multi-agent collaboration with the Multi-Agent Protocol.
      and whether there is more than one owner (PROTOCOL.md 3.5); optionally each owner's
      public SSH key for signed owner records (PROTOCOL.md 3.6);
    - the lines and roles (who is lead, which lines exist, who releases, which tool and
-     branch prefix each uses, and which area each owns);
+     branch prefix each uses, and which area each owns); for lines run by a smaller or
+     cheaper model, whether to add the session card from adapters/compact-rules.md;
    - any standing authorizations I want to grant, with scope and exclusions;
    - whether to vendor the protocol into the repository (recommended: run
      scripts/install.sh <project> from the clone, which copies it into

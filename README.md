@@ -177,8 +177,12 @@ claims, give the worktree a line name once. The plugin's SessionStart hook then 
 Paste the prompt in [adapters/BOOTSTRAP.md](adapters/BOOTSTRAP.md) into Codex, Claude Code
 or another agent inside your project. The agent reads the protocol, asks you for the role
 table and any standing authorizations, adds the rules snippet to `AGENTS.md`, creates the
-coordination branch and publishes its status. For Codex specifics (sandbox network access
-for `git push`, `codex exec`, polling on a timer) see [adapters/codex.md](adapters/codex.md).
+coordination branch and publishes its status. Tool notes:
+[Codex](adapters/codex.md) (sandbox network access for `git push`, `codex exec`, polling
+on a timer), [OpenCode](adapters/opencode.md) (rules, permissions, `opencode run`) and
+[Aider](adapters/aider.md) (loading the rules, automatic commits, a wrapper). For smaller
+or cheaper models, such as the fast tiers of DeepSeek, add the short session card from
+[adapters/compact-rules.md](adapters/compact-rules.md).
 
 ### 3. Install into the project by hand
 
