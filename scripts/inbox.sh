@@ -1,6 +1,7 @@
 #!/bin/sh
 # List unread messages for a line: addressed to the line, to its role (the Role field of
-# its status file), or to "all"; pushed after the line's Last-read; not sent by itself.
+# its status file), or to "all"; pushed after the line's Last-read; not sent by itself unless
+# addressed to the line by name (a transfer handover, PROTOCOL.md 5.7).
 # No model call.
 # Usage: inbox.sh [--show] [--no-fetch] <line>
 #   --show      print each message instead of only its file name
@@ -58,9 +59,14 @@ unread=$(
             for (i = 1; i <= count; i++) {
                 name = order[i]
                 if (!past) { if (name == last_read) past = 1; continue }
-                if (from[name] == line) continue
                 recipients = to[name]; gsub(/,/, " ", recipients)
                 n = split(recipients, list, /[ \t]+/)
+                # Own messages are skipped, unless addressed to this line by name (a transfer handover).
+                if (from[name] == line) {
+                    named = 0
+                    for (j = 1; j <= n; j++) if (list[j] == line) named = 1
+                    if (!named) continue
+                }
                 for (j = 1; j <= n; j++) {
                     if (list[j] == line || list[j] == "all" || (role != "" && list[j] == role)) { print name; break }
                 }

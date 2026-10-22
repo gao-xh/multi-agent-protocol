@@ -115,6 +115,10 @@ claims/<task-slug>.md                       who is doing which task, with a leas
 decisions/<YYYY-MM-DD>_<topic>.md           owner decisions and standing authorizations
 ```
 
+A whole line can also move to another agent or machine: the giving session pushes
+everything and leaves a `transfer` handover addressed to its own line name, and the
+receiving session, under the same name, reads it first and checks every branch SHA.
+
 When a session joins, its status file describes its environment (tool, model, a machine
 label, sandbox and network access, what it can and cannot run) and it announces itself to
 all, so the others know what to hand it. Messages are new files, so they never conflict. Each line keeps a `Last-read` pointer in its

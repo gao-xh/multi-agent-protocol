@@ -12,6 +12,9 @@ minor version adds rules, roles or tools, and a patch fixes wording or bugs.
 - Signed owner records (PROTOCOL.md 3.6): owner decisions and messages signed with the
   owner's SSH key (`ssh-keygen -Y`, namespace `map-approval`) count as direct approval;
   keys are listed in the agent rules file on the main branch.
+- Transferring a line (PROTOCOL.md 5.7): a line moves to another agent, tool or machine
+  under the same name; `templates/transfer.md`; a line now sees messages addressed to it
+  by name even when it sent them, so the handover reaches its successor.
 - `scripts/decide.sh` records decisions (with `--supersede`), `scripts/verify.sh` checks
   owner signatures.
 

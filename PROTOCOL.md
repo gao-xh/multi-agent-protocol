@@ -132,6 +132,7 @@ decisions/<YYYY-MM-DD>_<topic>.md           owner decisions and standing authori
 - Read the coordination branch at session start, before taking a task, before and after merging into the main branch, and at least hourly during long tasks.
 - At session start, read in this order: your role, the latest `decisions/`, unread messages addressed to you, to your role or to `all`, active claims, and the other lines' status.
 - An agent without push notifications SHOULD check on a timer, with a cheap check first (`scripts/inbox.sh <line>`, no model call), and wake the model only when something is new.
+- A line does not see its own messages, except those addressed to it by name (5.7).
 - Update your status when you start or finish a task and when your declared area changes. Keep its `Environment` section current (5.5).
 - Announce an interface change (function signatures, API fields, file formats, configuration keys, shared selectors) with a `heads-up` **before** merging it, and keep reading the old form where feasible.
 
@@ -176,6 +177,26 @@ A claim says "this line is doing this task", so that two lines do not start the 
 - A claim past `expires` is stale. Another line MAY take it over only after a `heads-up` that names the stale claim, and SHOULD first ask the owner when the stale line may still have unpushed work.
 - Release the claim (delete the file) when the task is handed over or released.
 - Claims are advisory. They prevent duplicate work; they do not replace branch isolation.
+
+### 5.7 Transferring a line
+
+A line can move to another agent, tool or machine, for example from Claude Code to Codex, or from one computer to another. The line keeps its name, so its status, `Last-read`, claims and branches carry over. The owner decides when a line moves, and only one session holds a line at a time: the receiving session starts after the giving session has ended.
+
+The giving session:
+
+1. Stops taking new work and finishes or pauses its current step.
+2. Commits everything on the line's branches (unfinished work in a commit marked `WIP`) and pushes them. It leaves no uncommitted changes or stashes, and stops the servers and jobs it started.
+3. Sends a `handover` addressed to its own line name, from `templates/transfer.md`: each branch with its exact pushed SHA, the current task and its next step, open claims, messages it has not handled, what exists only on its machine (local data, environment variables by name, never their values), and what was tried and failed.
+4. Sets its status to `State: transferring to <agent or machine label>` and ends its session. It does not renew claims after that.
+
+The receiving session:
+
+1. Starts with the same line name, in the existing worktree or in a fresh checkout of the line's branch.
+2. Reads the transfer handover first. (A line does not see its own messages, except those addressed to it by name, so the handover reaches its successor.) It checks that every branch is at the SHA the handover names; if not, it stops and asks the owner.
+3. Updates the `Environment` section of the status file and sends the `joined` heads-up ("line `<name>` now runs on ...").
+4. Renews the line's claims, marks the handover read, and continues.
+
+To move a single task to another line instead, send that line a normal `handover` and release the claim.
 
 ## 6. The life of a change
 

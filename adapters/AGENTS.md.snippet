@@ -21,6 +21,8 @@ Short version (the protocol wins if this summary disagrees):
 - When you join, describe your environment in your status file (tool, model, machine label,
   sandbox and network, what you can run) and send the `joined` heads-up; no host names, IP
   addresses or secrets.
+- Moving this line to another agent or machine: commit and push everything, send the
+  `transfer` handover to your own line name, then end the session (PROTOCOL.md 5.7).
 - "Done" means a pushed commit SHA plus the checks you actually ran and their results.
 
 ### Profile and owners

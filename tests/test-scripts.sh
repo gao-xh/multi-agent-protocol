@@ -144,6 +144,14 @@ check "a status without Agent can be published" run status.sh env-test "${work}/
 check "doctor warns about the missing Agent field" sh -c "'$test_shell' '${scripts}/doctor.sh' | grep -q 'env-test.md: environment field'"
 check "doctor no longer warns about privacy" sh -c "! '$test_shell' '${scripts}/doctor.sh' | grep -q 'env-test.md: looks like'"
 
+# Line transfer: a handover addressed to the line itself reaches its successor.
+printf 'type: handover\nfrom: transfer-test\nto: transfer-test\n\n## Transfer of line transfer-test\n' >"${work}/transfer.md"
+printf 'type: heads-up\nfrom: transfer-test\nto: all\n\n- Change: own broadcast\n' >"${work}/own.md"
+check "the transfer template is available" sh -c "'$test_shell' '${scripts}/send.sh' --template transfer | grep -q '^to: <line>'"
+run send.sh "${work}/own.md" >/dev/null 2>&1
+run send.sh "${work}/transfer.md" >/dev/null 2>&1
+check "a line sees a handover addressed to itself, not its own broadcast" sh -c "[ \"\$('$test_shell' '${scripts}/inbox.sh' transfer-test | grep -c _transfer-test_)\" = 1 ] && '$test_shell' '${scripts}/inbox.sh' transfer-test | grep -q _handover.md"
+
 # Parallel release sessions take turns on the main branch.
 check "release-a takes release-main" run claim.sh release-a release-main
 cd "${work}/api" || exit 2
