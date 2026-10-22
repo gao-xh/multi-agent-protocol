@@ -5,7 +5,7 @@ The protocol, the scripts and the Claude Code plugin share one version number, f
 minor version adds rules, roles or tools, and a patch fixes wording or bugs.
 `PROTOCOL.md` states the protocol version as `MAJOR.MINOR`.
 
-## 1.3.0 - unreleased
+## 1.3.0 - 2026-10-21
 
 ### Added
 
@@ -17,6 +17,11 @@ minor version adds rules, roles or tools, and a patch fixes wording or bugs.
   by name even when it sent them, so the handover reaches its successor.
 - `scripts/decide.sh` records decisions (with `--supersede`), `scripts/verify.sh` checks
   owner signatures.
+
+### Changed
+
+- Approvals may come from the owner's session or from a signed owner record (3.1, 3.5);
+  the snippet, bootstrap prompt and skills say so.
 
 ## 1.2.0 - 2026-10-21
 
