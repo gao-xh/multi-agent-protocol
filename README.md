@@ -1,7 +1,8 @@
 # MAP: Multi-Agent Protocol
 
 [![check](https://github.com/gao-xh/multi-agent-protocol/actions/workflows/check.yml/badge.svg)](https://github.com/gao-xh/multi-agent-protocol/actions/workflows/check.yml)
-[![version](https://img.shields.io/github/v/tag/gao-xh/multi-agent-protocol?label=version&sort=semver)](CHANGELOG.md)
+[![stable](https://img.shields.io/github/v/release/gao-xh/multi-agent-protocol?label=stable)](https://github.com/gao-xh/multi-agent-protocol/releases/latest)
+[![pre-release](https://img.shields.io/github/v/release/gao-xh/multi-agent-protocol?include_prereleases&label=pre-release&color=orange)](https://github.com/gao-xh/multi-agent-protocol/releases)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 [中文说明](README.zh-CN.md)
