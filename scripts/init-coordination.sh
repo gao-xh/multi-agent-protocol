@@ -41,7 +41,7 @@ or from a separate temporary worktree, never from a development checkout.
 README
 }
 
-readme_blob=$(write_readme | git hash-object -w --stdin) || die "cannot write the README blob"
+readme_blob=$({ write_readme; printf '\nCreated with the scripts of Multi-Agent Protocol %s. Sessions report their own\nversion in the Protocol field of their status file.\n' "$MAP_VERSION"; } | git hash-object -w --stdin) || die "cannot write the README blob"
 
 keep_blob=$(git hash-object -w --stdin </dev/null) || die "cannot write an empty blob"
 keep_tree=$(printf '100644 blob %s\t.gitkeep\n' "$keep_blob" | git mktree) || die "cannot write a tree"

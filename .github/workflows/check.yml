@@ -11,6 +11,8 @@ permissions:
 
 jobs:
   scripts:
+    # Private repositories run checks locally (dev/check.sh); there CI runs only on demand.
+    if: ${{ !github.event.repository.private || github.event_name == 'workflow_dispatch' }}
     name: scripts (${{ matrix.os }}, ${{ matrix.shell }})
     runs-on: ${{ matrix.os }}
     strategy:
@@ -19,7 +21,6 @@ jobs:
         include:
           - { os: ubuntu-latest, shell: sh }    # dash
           - { os: ubuntu-latest, shell: bash }
-          - { os: macos-latest, shell: sh }     # bash 3.2 in POSIX mode
     steps:
       - uses: actions/checkout@v5
       - name: Syntax check
@@ -27,7 +28,21 @@ jobs:
       - name: End-to-end test
         run: tests/test-scripts.sh ${{ matrix.shell }}
 
+  scripts-macos:
+    name: scripts (macos-latest, sh)
+    # Private repositories run checks locally (dev/check.sh); there CI runs only on demand.
+    if: ${{ !github.event.repository.private || github.event_name == 'workflow_dispatch' }}
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Syntax check
+        run: for script in scripts/*.sh tests/*.sh; do sh -n "$script"; done
+      - name: End-to-end test (bash 3.2 in POSIX mode)
+        run: tests/test-scripts.sh sh
+
   shellcheck:
+    # Private repositories run checks locally (dev/check.sh); there CI runs only on demand.
+    if: ${{ !github.event.repository.private || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -39,6 +54,8 @@ jobs:
             xargs -0 shellcheck --shell=sh --severity=warning --external-sources --source-path=SCRIPTDIR
 
   plugin:
+    # Private repositories run checks locally (dev/check.sh); there CI runs only on demand.
+    if: ${{ !github.event.repository.private || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

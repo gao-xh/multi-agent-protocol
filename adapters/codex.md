@@ -84,11 +84,20 @@ available from the CLI. A shell timer like the one above works with any agent.
 
 ## 5. Direct messages between sessions
 
-Optional (PROTOCOL.md 5.1). The Codex CLI reference lists a `codex queue` command that
-queues a message for an existing session. **Unverified:** its exact flags were not
-confirmed in the official docs; check `codex queue --help` before relying on it. Whatever
-you use, write handovers, release requests, `released` and `returned` messages to the
-coordination branch as well.
+Optional (PROTOCOL.md 5.1). `codex queue --thread <session id> --message <text>` queues a
+message for an existing Codex session (thread). Tested with Codex CLI 0.162.0-alpha.17.2 on
+2026-10-27, between two local sessions:
+
+- **Verified:** the receiving session was an interactive (TUI) session, resumed by hand
+  and idle: it got the queued message as a user message in its next turn and replied.
+  The sender needed the tool's normal permission escalation to reach the local Codex
+  service.
+- **Not verified:** delivery to a session that is busy in a turn, to one that is not
+  loaded, or to a headless `codex exec` run (one attempt reported the message as queued,
+  but no `exec` turn received it). Do not rely on `codex queue` to wake those.
+
+Check `codex queue --help` on your version. Whatever you use, write handovers, release
+requests, `released` and `returned` messages to the coordination branch as well.
 
 ## 6. Skills and subagents
 

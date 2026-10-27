@@ -29,20 +29,26 @@ target="${project}/${dest}"
 
 action=installed
 [ ! -e "${target}/PROTOCOL.md" ] || action=updated
-mkdir -p "${target}/scripts" "${target}/templates" || die "cannot create ${target}"
+mkdir -p "${target}/scripts" "${target}/templates" "${target}/adapters" || die "cannot create ${target}"
 cp "${source_root}/PROTOCOL.md" "${source_root}/LICENSE" "${target}/" || die "copy failed"
 cp "${source_root}/adapters/AGENTS.md.snippet" "${target}/" || die "copy failed"
 cp "${source_root}"/scripts/*.sh "${target}/scripts/" || die "copy failed"
 cp "${source_root}"/templates/*.md "${target}/templates/" || die "copy failed"
+# The prompts for agents that join later or change a setting, and the per-tool notes.
+cp "${source_root}/adapters/JOIN.md" "${source_root}/adapters/CHANGE.md" "${source_root}/adapters/README.md" \
+    "${target}/adapters/" || die "copy failed"
 chmod +x "${target}"/scripts/*.sh && chmod -x "${target}/scripts/lib.sh"
+# Keep LF line endings in the scripts on Windows, whatever core.autocrlf says.
+printf '*.sh text eol=lf\n' >"${target}/.gitattributes" || die "cannot write ${target}/.gitattributes"
 
-protocol_version=$(sed -n 's/^Version \([0-9.]*[0-9]\)\.*$/\1/p' "${source_root}/PROTOCOL.md" | head -n 1)
+protocol_version=$MAP_VERSION
 source_commit=$(git -C "$source_root" rev-parse --short HEAD 2>/dev/null || printf 'unknown')
 {
     printf 'Multi-Agent Protocol %s\n' "$protocol_version"
     printf 'Source: https://github.com/gao-xh/multi-agent-protocol (commit %s)\n' "$source_commit"
     printf 'Installed: %s\n' "$(utc_now)"
     printf 'Update: rerun scripts/install.sh from a newer clone; local edits to these files are overwritten.\n'
+    printf 'Upgrading: see UPGRADING.md in the source repository.\n'
 } >"${target}/VERSION"
 
 note "${action} Multi-Agent Protocol ${protocol_version} in ${target}"

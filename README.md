@@ -1,4 +1,4 @@
-# Multi-Agent Protocol
+# MAP: Multi-Agent Protocol
 
 [![check](https://github.com/gao-xh/multi-agent-protocol/actions/workflows/check.yml/badge.svg)](https://github.com/gao-xh/multi-agent-protocol/actions/workflows/check.yml)
 [![version](https://img.shields.io/github/v/tag/gao-xh/multi-agent-protocol?label=version&sort=semver)](CHANGELOG.md)
@@ -10,6 +10,8 @@
 > project, follow [adapters/BOOTSTRAP.md](adapters/BOOTSTRAP.md) step by step (raw text:
 > https://raw.githubusercontent.com/gao-xh/multi-agent-protocol/main/adapters/BOOTSTRAP.md).
 > It tells you what to check, what to ask the owner, and what to change only after they answer.
+> If the project is already set up and you are asked to join it, follow
+> [adapters/JOIN.md](adapters/JOIN.md) instead.
 
 A governance and release protocol for several AI coding agents (Claude Code, Codex and
 others) that work on one project in parallel, on behalf of one human owner.
@@ -21,10 +23,11 @@ part. It is a set of rules plus a few small tools, and it works with any orchest
 with plain terminal sessions on different machines.
 
 - **[PROTOCOL.md](PROTOCOL.md)**: the protocol (RFC 2119 wording, about 15 minutes to read).
+- **[UPGRADING.md](UPGRADING.md)**: how to find your version and update a project, with several sessions.
 - **[scripts/](scripts/)**: POSIX `sh` tools for the git-based coordination branch. They need only git.
-- **[templates/](templates/)**: message templates (handover, release request, released, returned, heads-up, status, review packet; `send.sh --template question` and `answer` print the short ones).
+- **[templates/](templates/)**: message templates (handover, release request, released, returned, review, heads-up, joined, transfer, status, review packet; `send.sh --template question` and `answer` print the short ones).
 - **[adapters/](adapters/)**: the `AGENTS.md` snippet, a bootstrap prompt for any agent, and notes for Codex.
-- **Claude Code plugin**: role skills (`lead`, `line`, `release`, `coordinate`) and `builder` / `reviewer` agents.
+- **Claude Code plugin**: role skills (`lead`, `line`, `release`, `liaison`, `relay`, `coordinate`) and `builder` / `reviewer` agents.
 
 ## Why
 
@@ -49,6 +52,20 @@ protocol is built around five things that prevent these:
 
 The protocol ends with a [table of real failure modes](PROTOCOL.md#11-known-failure-modes)
 and the rule that prevents each one.
+
+## Where it fits
+
+MAP works above the common agent standards and uses them; it replaces none of them.
+
+| Layer | What it covers | Examples |
+| --- | --- | --- |
+| Rules for one agent | What an agent reads at the start of a session | `AGENTS.md`, `CLAUDE.md`: MAP's rules block goes there |
+| Tools and data | How an agent calls tools and reads data | MCP |
+| Agent to agent | Message formats for agents that call each other directly | A2A, ACP |
+| **Work between agents and their owner** | Who may approve what, who works where, how work is handed over, and how a change reaches the main branch | **MAP**, over plain git |
+
+Agents in a MAP project may use MCP servers and talk over A2A as well; MAP only asks that
+handovers, approvals and releases go through its rules and its coordination branch.
 
 ## Roles
 
@@ -100,9 +117,15 @@ project; in a larger one any role can run as several parallel sessions (many lin
 builders and reviewers at once; several leads split by area; several release sessions that
 take turns on the main branch through a claim). A project can also add its own roles, such
 as tester, documentation or security audit, as long as they keep the reserved powers
-intact: only the owner approves and only the release role moves the main branch
+intact: only the owner approves and only the release role (or the role the project names
+for that work) moves the main branch
 ([PROTOCOL.md 2.1](PROTOCOL.md#21-parallel-sessions-and-project-roles)). The roles, and
-which tool runs each one, are listed in a table in the project's `AGENTS.md`.
+which tool runs each one, are listed in a table in the project's `AGENTS.md`. The roles
+and permissions are defaults: a project may rename, combine or leave out roles and change
+who may do what, and add their own message types, in the same file, approved the way the
+project chose at setup (by default proposals go through the lead to the owner); approvals, the single
+session that moves the main branch and independent review stay as they are
+([PROTOCOL.md 2.2](PROTOCOL.md#22-customizing-roles-and-permissions)).
 
 ## How agents talk
 
@@ -121,15 +144,20 @@ everything and leaves a `transfer` handover addressed to its own line name, and 
 receiving session, under the same name, reads it first and checks every branch SHA.
 
 When a session joins, its status file describes its environment (tool, model, a machine
-label, sandbox and network access, what it can and cannot run) and it announces itself to
-all, so the others know what to hand it. Messages are new files, so they never conflict. Each line keeps a `Last-read` pointer in its
+label, sandbox and network access, what it can and cannot run, how a new message wakes it,
+whether it can push the coordination branch, whether the owner is usually present, the
+git identity it commits under: by default its line name) and it
+announces itself to all, so the others know what to hand it. Messages are new files, so they never conflict. Each line keeps a `Last-read` pointer in its
 status file and advances it only after acting on a message, so an interrupted session redoes
 work instead of losing it. Agents without push notifications poll with `inbox.sh`, which
-makes no model call and exits 1 when there is nothing new.
+makes no model call and exits 1 when there is nothing new, or run `watch.sh`, which prints
+one line per new message (one summary line when more than three arrive at once) for a
+tool that turns output into a notification.
 
 ```sh
 scripts/init-coordination.sh                 # once per project
 scripts/inbox.sh --show api                  # unread messages for line "api"
+scripts/watch.sh --once api                  # print what is new (or wait for it), then exit
 scripts/send.sh --template handover > m.md   # fill it in, then:
 scripts/send.sh m.md
 scripts/mark-read.sh api <message-file>      # after handling it
@@ -164,9 +192,14 @@ Then start each session with its role: `/multi-agent-protocol:lead`,
 and cannot start other agents; it does have Bash to run the change, and is read-only by
 instruction.
 
-Optional: to have each session start with a summary of its unread messages and active
-claims, give the worktree a line name once. The plugin's SessionStart hook then runs
-`scripts/session-start.sh`; without a line name it does nothing.
+Optional: give the worktree a line name once. Each session then starts with a summary of
+its unread messages and active claims (the plugin's SessionStart hook runs
+`scripts/session-start.sh`), and the plugin's monitor runs `scripts/watch.sh`, which fetches
+the coordination branch every 30 seconds and is meant to wake the session, even when it is idle at
+the prompt, when a new message arrives for its line (not yet checked in a real Claude Code
+session). Without a line name both do nothing. The stored name binds every later
+session in that worktree to the line; only one watcher per line runs in a worktree, and a
+second one exits with a one-line notice.
 
 ```text
 /multi-agent-protocol:coordinate set-line api      # once per worktree; or start with MAP_LINE=api
@@ -175,10 +208,26 @@ claims, give the worktree a line name once. The plugin's SessionStart hook then 
 ### 2. Bootstrap prompt, for any agent
 
 Paste the prompt in [adapters/BOOTSTRAP.md](adapters/BOOTSTRAP.md) into Codex, Claude Code
-or another agent inside your project. The agent reads the protocol, asks you for the role
-table and any standing authorizations, adds the rules snippet to `AGENTS.md`, creates the
-coordination branch and publishes its status. Tool notes:
-[Codex](adapters/codex.md) (sandbox network access for `git push`, `codex exec`, polling
+or another agent inside your project, once. The agent finds out what it can about the
+project, proposes every setting on one numbered page (you answer "ok" or change items by
+number), shows the rules block before writing it, creates the coordination branch, joins
+itself, and gives you a start card for each other agent. Agents that join later paste
+[adapters/JOIN.md](adapters/JOIN.md): they read the project's settings, configure only
+themselves and usually ask nothing; an agent with no row in the role table is registered
+by you in its session, or joins as pending until the lead registers it with your
+approval. Change one setting later through the lead with
+[adapters/CHANGE.md](adapters/CHANGE.md). Which mainstream agents read the rules, can
+push the coordination branch and can be woken, and what to set for each:
+[adapters/README.md](adapters/README.md); Windows, macOS, Linux and the git hosts (GitHub,
+GitLab, Bitbucket, Gitea/Forgejo, Azure DevOps): [adapters/platforms.md](adapters/platforms.md).
+The setup first asks how detailed it should be (quick, standard or detailed) and which task
+mode fits the project ([adapters/modes.md](adapters/modes.md): simple GitHub
+collaboration, private development with public release, server deployment, app release,
+an owner liaison, package release, documentation, data pipelines, several services in one
+repository, open source with outside contributors, research or prototype, refactoring or
+migration, security audit or review, incident response).
+Tool notes: [GitHub Copilot](adapters/copilot.md), [Gemini CLI](adapters/gemini.md),
+[Cursor](adapters/cursor.md), [Codex](adapters/codex.md) (sandbox network access for `git push`, `codex exec`, polling
 on a timer), [OpenCode](adapters/opencode.md) (rules, permissions, `opencode run`) and
 [Aider](adapters/aider.md) (loading the rules, automatic commits, a wrapper). For smaller
 or cheaper models, such as the fast tiers of DeepSeek, add the short session card from

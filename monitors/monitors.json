@@ -1,0 +1,7 @@
+[
+  {
+    "name": "coordination-inbox",
+    "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/watch.sh",
+    "description": "New coordination messages for this checkout's line (does nothing until set-line.sh is run)"
+  }
+]

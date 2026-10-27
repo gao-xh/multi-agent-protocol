@@ -21,3 +21,4 @@ esac
 check_name line "$1"
 printf '%s\n' "$1" >"$store" || die "cannot write ${store}"
 note "this worktree is line '$1'"
+note "the Claude Code plugin watches this line's inbox from the next session (or after /reload-plugins)"

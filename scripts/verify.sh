@@ -2,16 +2,15 @@
 # Check the owner signature of a decision or message (PROTOCOL.md 3.6).
 # Usage: verify.sh <coordination-path>      for example decisions/2026-10-21_releases.md
 #        verify.sh --file <local-file>
-# Owner keys are read from lines "- Owner signing key: <name> <public key>" in AGENTS.md
-# and CLAUDE.md on the remote main branch (MAP_MAIN, default main), never from the
-# coordination branch. Prints the signing owner's name.
+# Owner keys are read from lines "- Owner signing key: <name> <public key>" in AGENTS.md,
+# CLAUDE.md and .claude/CLAUDE.md on the main branch (MAP_MAIN on MAP_MAIN_REMOTE), never
+# from the coordination branch. Prints the signing owner's name.
 # Exit status: 0 valid signature, 1 unsigned or invalid, 2 on error.
 set -u
 PROG=verify.sh
 # shellcheck source=lib.sh
 . "$(dirname -- "$0")/lib.sh"
 
-MAP_MAIN=${MAP_MAIN:-main}
 local_file=""
 case "${1:-}" in
     -h | --help | "") sed -n '2,9s/^# \{0,1\}//p' "$0"; [ $# -gt 0 ]; exit $? ;;
@@ -32,12 +31,10 @@ else
     show_file "$1" >"${work}/record" || die "no file '$1' on '${MAP_BRANCH}'"
 fi
 
-git fetch --quiet "$MAP_REMOTE" "+refs/heads/${MAP_MAIN}:refs/remotes/${MAP_REMOTE}/${MAP_MAIN}" 2>/dev/null ||
-    die "cannot fetch '${MAP_MAIN}' from '${MAP_REMOTE}'"
-for rules in AGENTS.md CLAUDE.md; do
-    git show "refs/remotes/${MAP_REMOTE}/${MAP_MAIN}:${rules}" 2>/dev/null
-done | sed -n 's/^[[:space:]]*-[[:space:]]*Owner signing key:[[:space:]]*\([A-Za-z0-9._-][A-Za-z0-9._-]*\)[[:space:]][[:space:]]*\(ssh-[a-z0-9-]* [A-Za-z0-9+/=]*\).*$/\1 \2/p' >"${work}/allowed_signers"
-[ -s "${work}/allowed_signers" ] || die "no '- Owner signing key:' line in AGENTS.md or CLAUDE.md on ${MAP_REMOTE}/${MAP_MAIN}"
+git fetch --quiet "$MAP_MAIN_REMOTE" "+refs/heads/${MAP_MAIN}:$(main_ref)" 2>/dev/null ||
+    die "cannot fetch '${MAP_MAIN}' from '${MAP_MAIN_REMOTE}'"
+main_rules | sed -n 's/^[[:space:]]*-[[:space:]]*Owner signing key:[[:space:]]*\([A-Za-z0-9._-][A-Za-z0-9._-]*\)[[:space:]][[:space:]]*\(ssh-[a-z0-9-]* [A-Za-z0-9+/=]*\).*$/\1 \2/p' >"${work}/allowed_signers"
+[ -s "${work}/allowed_signers" ] || die "no '- Owner signing key:' line in the agent rules files on ${MAP_MAIN_REMOTE}/${MAP_MAIN}"
 
 # The signed content is everything before the signature block.
 sed '/^-----BEGIN SSH SIGNATURE-----$/,$d' "${work}/record" >"${work}/content"
