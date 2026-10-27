@@ -29,6 +29,13 @@ with plain terminal sessions on different machines.
 - **[adapters/](adapters/)**: the `AGENTS.md` snippet, a bootstrap prompt for any agent, and notes for Codex.
 - **Claude Code plugin**: role skills (`lead`, `line`, `release`, `liaison`, `relay`, `coordinate`) and `builder` / `reviewer` agents.
 
+> **Release candidate 2.0.0-rc.1** is on the branch `next` (tag `v2.0.0-rc.1`); `main` and
+> the plugin marketplace stay on 1.3.1 until 2.0.0. To try it, take the files from the tag:
+> `git clone --branch v2.0.0-rc.1 https://github.com/gao-xh/multi-agent-protocol`, then
+> add that folder as the marketplace (`/plugin marketplace add ./multi-agent-protocol`), or
+> run its `scripts/install.sh` on your project, and tell a setup agent to read the files
+> of the tag instead of `main`. What changed: [CHANGELOG.md](CHANGELOG.md).
+
 ## Why
 
 Running several agents at once fails in predictable ways. Two sessions edit one working
@@ -225,13 +232,25 @@ mode fits the project ([adapters/modes.md](adapters/modes.md): simple GitHub
 collaboration, private development with public release, server deployment, app release,
 an owner liaison, package release, documentation, data pipelines, several services in one
 repository, open source with outside contributors, research or prototype, refactoring or
-migration, security audit or review, incident response).
+migration, security audit or review, incident response, remote lead with local agents).
 Tool notes: [GitHub Copilot](adapters/copilot.md), [Gemini CLI](adapters/gemini.md),
 [Cursor](adapters/cursor.md), [Codex](adapters/codex.md) (sandbox network access for `git push`, `codex exec`, polling
 on a timer), [OpenCode](adapters/opencode.md) (rules, permissions, `opencode run`) and
 [Aider](adapters/aider.md) (loading the rules, automatic commits, a wrapper). For smaller
 or cheaper models, such as the fast tiers of DeepSeek, add the short session card from
 [adapters/compact-rules.md](adapters/compact-rules.md).
+
+### Remote work
+
+When the owner or the lead works away from the machine that has the data or the
+environment, agents there can still take work through the coordination branch: task
+mode 15 in [adapters/modes.md](adapters/modes.md). `scripts/runner.sh` starts a
+headless agent (Claude Code, Codex, OpenCode) whenever new messages arrive for its line;
+a `relay` runs the commands other sessions ask for on that machine; and the owner can
+drive a relay directly from another computer with `scripts/remote.sh`, signed with an SSH
+key or, where the project allows it, unsigned (`- Owner commands:`). When a relay lacks
+a permission, `remote.sh` shows the rule it asks for and allows it for one run only on
+the owner's `y`. Setup guide: [adapters/remote.md](adapters/remote.md).
 
 ### 3. Install into the project by hand
 
