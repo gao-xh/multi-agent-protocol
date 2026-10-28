@@ -14,7 +14,7 @@ MAP_MAIN=${MAP_MAIN:-main}
 MAP_MAIN_REMOTE=${MAP_MAIN_REMOTE:-$MAP_REMOTE}
 MAP_MAX_ATTEMPTS=${MAP_MAX_ATTEMPTS:-5}
 # The version of these scripts; the release role keeps it equal to .claude-plugin/plugin.json.
-MAP_VERSION=2.0.0-rc.3
+MAP_VERSION=2.0.0
 # Where newer versions are published (update_notice).
 MAP_UPSTREAM=${MAP_UPSTREAM:-https://github.com/gao-xh/multi-agent-protocol.git}
 MAP_MESSAGE_TYPES="handover release-request released returned review heads-up question answer command"
@@ -55,6 +55,24 @@ main_rules() {
     for rules in AGENTS.md CLAUDE.md .claude/CLAUDE.md; do
         git show "$(main_ref):${rules}" 2>/dev/null
     done | tr -d '\r'
+}
+
+# Sender names of the outside correspondents (PROTOCOL.md 2.4) that the rules files on the
+# main branch list: the first column of the table under a heading "Outside
+# correspondents", without backticks, one per line.
+listed_correspondents() {
+    main_rules | LC_ALL=C awk '
+        /^#+[ \t]+Outside correspondents[ \t]*$/ { in_section = 1; in_table = 0; next }
+        /^#/ { in_section = 0; next }
+        !in_section { next }
+        /^\|/ {
+            split($0, cell, "|"); name = cell[2]; gsub(/[ \t`]/, "", name)
+            if (!in_table) { in_table = 1; next }
+            if (name ~ /^:?-+:?$/ || name == "" || name ~ /^</) next
+            print name
+            next
+        }
+        { in_table = 0 }'
 }
 
 # Message types the project adds, one line each in the rules files on the main branch:
@@ -166,6 +184,16 @@ is_message() {
     git ls-tree --name-only "$(coordination_ref)" -- "messages/${candidate}" 2>/dev/null | grep -Fqx "messages/${candidate}"
 }
 
+# The claim names of a message (PROTOCOL.md 2.1, 5.6), from its file name with or without
+# "messages/" and ".md": first "msg-<name, each _ written as ->", then the older form
+# "msg-<timestamp>-<from>", which scripts still read.
+message_claims() {
+    claimed=${1#messages/}
+    claimed=${claimed%.md}
+    printf 'msg-%s\n' "$(printf '%s' "$claimed" | tr '_' '-')"
+    printf '%s\n' "$claimed" | LC_ALL=C awk -F '_' 'NF >= 3 { print "msg-" $1 "-" $2 }'
+}
+
 # Print a file from the fetched coordination branch; fail quietly if missing.
 show_file() {
     git show "$(coordination_ref):$1" 2>/dev/null
@@ -271,17 +299,17 @@ message_headers() {
 }
 
 # Write file $3 to stdout with the "- Key: value" field $1 set to $2. The key matches as
-# status_value reads it (any case, "- " optional, CRLF accepted), on a "- " line or before
-# the first "## " heading, so that free text further down ("Updated: ..." in a question)
-# stays: the first match is replaced, later matches are dropped, and the field is
-# appended when there is none.
+# status_value reads it (any case, "- " optional, CRLF accepted), before the first "## "
+# heading or in "## Environment", where the fields are, so that text in other sections
+# ("- Updated: ..." in a question) stays: the first match is replaced, later matches are
+# dropped, and the field is appended when there is none.
 set_status_field() {
     LC_ALL=C awk -v key="$1" -v value="$2" '
         BEGIN { name = key; key = tolower(key) }
         {
             line = $0; sub(/\r$/, "", line)
-            if (line ~ /^## /) section = 1
-            if (section && line !~ /^[ \t]*-/) { print; next }
+            if (line ~ /^## /) { section = 1; fields = (tolower(line) ~ /^## environment[ \t]*$/) }
+            if (section && !fields) { print; next }
             sub(/^[ \t]*-?[ \t]*/, "", line)
             colon = index(line, ":")
             if (colon > 1 && tolower(substr(line, 1, colon - 1)) == key) {

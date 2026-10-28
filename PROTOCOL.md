@@ -36,6 +36,8 @@ Rules:
 - The lead does its own edits on its own branch and worktree, like everyone else.
 - Builders and reviewers report and stop; they do not wait around for more work.
 - Reviewers MUST NOT start further agents.
+- **Disputes.** A disagreement between lines, or between a line and the release role, goes to the lead; when the lead is a party, to the owner. Work that has been sent back (`returned`) three times on the same task goes to the owner.
+- **Repeated violations.** The lead records each violation of these rules by a session in `decisions/`, as a file whose topic starts with `violation-` and which says that it is the lead's record, not an owner decision, and reports it to the owner. The owner MAY suspend a line: the line sets `State: suspended` in its status file and stops, and the other sessions ignore its messages until the owner lifts the suspension.
 
 ### 2.1 Parallel sessions and project roles
 
@@ -43,7 +45,7 @@ Roles are not limited to one session each, and the list above is not closed.
 
 - **Reserved names.** `all` and `owner` are recipients, not line or role names: `all` reaches every session, `owner` the lead and liaison sessions (3.4).
 - **Every session has its own line name**, even when it shares a role (for example `release-a` and `release-b`). Status files, claims and messages are keyed by line name, so two sessions MUST NOT use the same one. Each status file names the session's role (`Role:`, one name such as `lead`; notes go elsewhere), so a message addressed to a role reaches every session that holds it.
-- **Messages to a shared role.** When several sessions hold the role a message is addressed to, the first one to claim `msg-<timestamp>-<from>` (5.6) handles the message; the others mark it read without acting on it.
+- **Messages to a shared role.** When several sessions hold the role a message is addressed to, the first one to claim the message (`msg-<message name>`, 5.6) handles the message; the others mark it read without acting on it.
 - **Lines run in parallel by design.** A project MAY have any number of lines, each with its own name, branch prefix and area.
 - **Builders and reviewers MAY run in parallel**, each on its own task, worktree and branch (builders) or detached worktree (reviewers).
 - **Several leads** MAY split the work by area. The role table names which lead is the owner's routine contact and which lead owns each shared contract; a contract has exactly one owning lead.
@@ -98,7 +100,7 @@ A relay acts on one machine (a workstation with the data, an instrument computer
 - **Branches.** It commits only the result files its area allows, on its own branch, and never advances the main branch.
 - **Owner commands (remote control).** The owner MAY drive a relay directly from elsewhere with a `command` message (5.4), so that the relay acts as the owner's own session on that machine. `scripts/runner.sh` checks commands before starting the agent, and `scripts/remote.sh` signs (when given a key), sends and follows them from the owner's computer.
   1. **How commands are checked.** The agent rules file chooses, with the line `- Owner commands: strict`, `lenient` or `off`: **strict** (the default) accepts only commands with a valid owner signature (3.6), so a project with no owner signing key has no owner commands; **lenient** also accepts an unsigned command that says `from: owner`, so that the owner needs no key, at the price that every session that can push the coordination branch can then command the relays as the owner; **off** accepts none. The choice is the owner's, made on the main branch, and is changed only with the owner's direct approval.
-  2. **When a command counts.** It passes that check, it is addressed to the relay by name, its `expires:` time has not passed when the relay first reads it, and its `id:` is carried by no other `command` message on the coordination branch. Otherwise the relay refuses it and reports the reason to its sender and to the lead.
+  2. **When a command counts.** It passes that check, it is addressed to the relay by name, its `expires:` time has not passed when the relay first reads it, and its `id:` is carried by no earlier `command` message on the coordination branch that would also count for this relay (one that passes the check of step 1 and is addressed to it). An earlier message that would not count, such as an unsigned one under strict, does not use up the id, so that a session cannot block a real command by sending its id first. Otherwise the relay refuses it and reports the reason to its sender and to the lead.
   3. **What a valid command means.** It counts as the owner speaking in the relay's session (3.1): the relay carries it out as such, including work outside its area that the command names. The rules of 2.3 above apply to everything else the relay receives. Its `allow:` lines are permission rules the owner grants for that run.
   4. **Missing permissions.** When a step needs a permission the run does not have, the relay does not work around it: it replies to the owner with the exact command and one line `Rule needed: <rule>` for each permission rule it needs, in the agent tool's own syntax, so that the owner's tool can offer to allow exactly those.
   5. **Replies.** The relay replies to each command with an `answer` to `owner` that references it.
@@ -116,8 +118,8 @@ protocol. It is a correspondent, not a line here.
   only messages (`question`, or `heads-up` for compatibility findings) to the lead or to a
   role this project names; no status file, claims, `Last-read` or decisions, and no other
   branch. It changes no file of this project.
-- **Its name.** `ext-<project>-<line>`, for example `ext-mapc-sync`, so that a reader can tell a listed correspondent from an unknown sender (a check in
-  `scripts/doctor.sh` is planned).
+- **Its name.** `ext-<project>-<line>`, for example `ext-mapc-sync`, so that a reader can tell a listed correspondent from an unknown sender (`scripts/doctor.sh`
+  warns about an `ext-` sender that is not listed).
 - **Announcements.** An interface change that a correspondent relies on (message, status,
   claim and decision files; script options, output and exit codes; the install layout;
   signing) is announced with a `heads-up` before it merges, as 5.3 requires, to `all` or
@@ -159,6 +161,8 @@ Any session that can push the coordination branch can write a record in `decisio
 
 The choice is the owner's and is changed only with the owner's direct approval.
 
+When an owner's new instruction contradicts an earlier decision, the work it affects stops until the lead has asked the owner; the result is a new decision that names the decision it supersedes (5.2). With several owners, 3.5 applies.
+
 ### 3.4 Clarify before building, and who asks the owner
 
 - Here and below, "the owner is present" in a session means what **Owner present** (end of this section) defines.
@@ -174,6 +178,7 @@ The choice is the owner's and is changed only with the owner's direct approval.
 - **The lead does not block either.** When the owner is absent, the lead keeps its open questions under "Open questions for the owner" in its status file, carries on with the work that does not depend on them, and asks them all when the owner is next present.
 - **Owner present** means the owner is in that session now and answering. When a session does not know, it counts the owner as absent. The `Owner present:` field of the status file (5.5) says how often the owner is usually there; it only helps the lead plan and never counts as presence.
 - **Unattended sessions keep going.** While its question is open, a session sets its task to `State: blocked: waiting for messages/<file>` and works on something else, or stops and reports. An unattended session also avoids commands that need a tool permission prompt, since nobody is there to answer it.
+- **Blocked work reaches the owner.** Work never waits silently. When a task is blocked and nothing the session can do unblocks it (an owner decision, a session that does not answer by its deadline, a failure it may not fix), the lead tells the owner what blocks it, since when, and what would unblock it: directly when the owner is present, otherwise through the owner's notification channel where the tool has one, and always under "Open questions for the owner". A line or relay that is blocked tells the lead (`question`), which passes it on, or the owner directly when the owner is present in its session; when no lead is running, it writes `to: owner`, which also reaches a liaison (Appendix A).
 
 ### 3.5 Several owners
 
@@ -183,6 +188,7 @@ The protocol assumes one owner. A project with several human owners lists them i
 - When scopes overlap or none covers an action, the agent asks the owners named for that case in the role table, or all of them; it never picks the most convenient one.
 - One owner relaying another owner's approval is relayed information, not an approval (3.1); the agent confirms with the owner whose scope it is.
 - Standing authorizations name the owner who granted them.
+- **Conflicting instructions.** When two owners disagree, the affected work stops. The lead asks every owner involved, and the result is a new decision that names the decision it supersedes (5.2).
 
 ### 3.6 Signed owner records
 
@@ -193,6 +199,7 @@ An owner who is not in an agent's session can still approve directly, through a 
 - Lines added after the signature block, such as `superseded-by:` (5.2), are not signed and grant nothing. `scripts/decide.sh` publishes a decision and, with `--supersede`, adds that line to the old one.
 - Anything that claims to be from an owner without a valid signature is relayed information, not an approval (3.1).
 - A tool that signs for the owner, such as a dashboard, MUST sign only text the owner entered or confirmed there, never text written by an agent.
+- **A lost or compromised key.** Revoking a key is an owner decision that states a cut-off time. Records signed with the key before the cut-off stay valid when the decision lists them; actions taken on records signed after the suspected compromise are reviewed. The key's line is removed from the agent rules file through the main branch, and a replacement key is added the same way.
 - The private key stays on the owner's machine, outside every agent's worktree. Agents running under the same user account could still read it, so signatures prevent mistakes and relayed approvals, not a determined attacker.
 
 ## 4. Isolation
@@ -227,7 +234,9 @@ decisions/<YYYY-MM-DD>_<topic>.md           owner decisions and standing authori
 - A message file is immutable once pushed. A correction is a new message that references the old one; if it names it in the optional `corrects:` header (5.4), `scripts/doctor.sh` reports the old message's problems as warnings that name the correction.
 - Pull before writing; on a rejected push, pull with rebase and retry. Never create a merge commit on this branch: the message order is the branch history. Messages never conflict, because each is a new file.
 - Each status file follows `templates/status.md`. It has an `Environment` section (5.5). Its `Last-read` field names the last message the line has fully handled, or is `none` (`scripts/status.sh` refuses any other value). Act on a message first and advance `Last-read` after, so an interrupted session redoes work instead of losing it.
-- A decision that is replaced gets a line `superseded-by: <file>`; it is never deleted.
+- A decision that is replaced gets a line `superseded-by: <file>`; it is never deleted. A decision is otherwise never edited, renamed or deleted; `doctor.sh` reports a change as an error. When a change happened and the owner accepts it, an owner decision recorded with `decide.sh` acknowledges it with one line per change, before any signature block: `acknowledges: decisions/<file> at <commit>` (7 to 40 lowercase hex digits of the commit that made the change; for a rename, the old or the new name). `doctor.sh` then reports the change as a warning that names that decision; under `- Approval records: strict` only a decision with a valid owner signature counts. `decide.sh` refuses such a line unless its commit is on the coordination branch and changed that file.
+- **The `from:` header is a claim, not proof.** Any session that can push the coordination branch can write any sender. Where the sender matters (corrections, owner commands under lenient, a correspondent's messages), a reader that has doubts checks the commit that added the message, or asks the sender.
+- **Times and clocks.** Times in claims, commands and decisions are UTC from a clock kept in sync. An agent allows two minutes of difference before it treats a claim or command as expired; the scripts compare times exactly.
 
 ### 5.3 When to read and write
 
@@ -236,7 +245,7 @@ decisions/<YYYY-MM-DD>_<topic>.md           owner decisions and standing authori
 - An agent without push notifications SHOULD check on a timer, with a cheap check first (`scripts/inbox.sh <line>`, no model call), and wake the model only when something is new. `scripts/watch.sh <line>` does this in a loop and prints one line per new message (one summary line when many arrive at once), for tools that turn a background command's output into a notification.
 - A line does not see its own messages, except those addressed to it by name (5.7).
 - Update your status when you start or finish a task and when your declared area changes. Keep its `Environment` section current (5.5).
-- Announce an interface change (function signatures, API fields, file formats, configuration keys, shared selectors) with a `heads-up` **before** merging it, and keep reading the old form where feasible.
+- Announce an interface change (function signatures, API fields, file formats, configuration keys, shared selectors) with a `heads-up` **before** merging it, and keep reading the old form where feasible. The heads-up names the lines that use the interface and a deadline (when it states none, the deadline is four hours after it was pushed); the change merges after those lines acknowledge it (an `answer` that references the heads-up; an outside correspondent, 2.4, answers with a `heads-up` that references it) or after the deadline has passed. A change that keeps every old form working, and whose heads-up says so in its `Compatibility:` line, MAY merge before the acknowledgements and the deadline; the lines still acknowledge it. A `release-request` lists the interfaces its change touches.
 
 ### 5.4 Message types
 
@@ -253,7 +262,7 @@ corrects: <earlier message files this one corrects, optional (5.2)>
 | Type | Sent by | Purpose | Required content (template in `templates/`) |
 | --- | --- | --- | --- |
 | `handover` | any | Pass a task to another agent | Goal, current state, confirmed facts, suggested approach, blockers, tests and docs required, and "no code changed" where true |
-| `release-request` | line, lead | Ask the release role to ship a branch | Branch, exact commit SHA, migrations (none, or each operation), configuration or scheduled-job changes, owner approvals and where they were given, checks run with results, known limits |
+| `release-request` | line, lead | Ask the release role to ship a branch | Branch, exact commit SHA, migrations (none, or each operation), configuration or scheduled-job changes, interfaces changed (5.3), owner approvals and where they were given, checks run with results, known limits |
 | `released` | release | Confirm what is live | Production commit, main branch commit, what went live, migration and rehearsal result, rollback command, follow-ups for the requester |
 | `returned` | release, lead, line | Send work back (a lead or line also relays its reviewer's findings this way when the work goes back) | Findings ranked by severity with evidence; what must change before the next attempt |
 | `review` | lead, line, relay (2.3) | Report review findings that send nothing back: a review of another line's work, a re-check, or the findings of a reviewer this line started (9) | Reviewed branch or artifact and SHA, findings ranked P1/P2/P3 with evidence, what looked good, what was only simulated |
@@ -288,8 +297,10 @@ Other sessions plan around what each session can do, so every session describes 
 A claim says "this line is doing this task", so that two lines do not start the same work.
 
 - To claim, fetch the coordination branch. If `claims/<task-slug>.md` exists, the task is taken. Otherwise add the file and push. Its format is four lines, with UTC times as `YYYY-MM-DDTHH:MM:SSZ`: `- Owner: <line>`, `- Branch: <branch>`, `- Started: <time>`, `- Expires: <time>` (`scripts/claim.sh` writes it). If the push is rejected, fetch again and repeat the check: if the file now exists, the task is taken.
-- Renew a claim by moving `expires` forward while working; a typical lease is a few hours.
-- A claim past `expires` is stale. Another line MAY take it over only after a `heads-up` that names the stale claim, and SHOULD first ask the owner when the stale line may still have unpushed work.
+- Renew a claim by moving `expires` forward before it runs out; a typical lease is a few hours, and work that runs overnight or unattended takes a longer one.
+- A claim past `expires` is stale. Another line MAY take it over only after a `heads-up` that names the stale claim, and SHOULD first ask the owner when the stale line may still have unpushed work. `scripts/claim.sh --take-stale <heads-up>` takes it over in one push.
+- **A stale `release-main`** needs the owner before anyone takes it over, because the session that held it may have stopped halfway through a deployment. Before acting, the new holder compares what is deployed with the main branch and the release log, and reports any difference to the owner.
+- **Message claims.** A message to a shared role (2.1) is claimed as `msg-<message name>`: the message's file name without `.md`, with each `_` written as `-` (for example `msg-20261028T075657Z-scripts-release-request`). It is renewed like any claim until the message is handled, and released with the reply. `claim.sh <line> messages/<file>.md` and `release-claim.sh <line> messages/<file>.md` build the name.
 - Release the claim (delete the file) when the task is handed over or released.
 - Claims are advisory. They prevent duplicate work; they do not replace branch isolation.
 
@@ -313,10 +324,24 @@ The receiving session:
 
 To move a single task to another line instead, send that line a normal `handover` and release the claim.
 
+### 5.8 A lost line
+
+A session can end without a transfer, for example when it crashes or its machine is gone, leaving `State: building` and claims behind.
+
+- The owner or the lead declares the line lost, in a `heads-up` to `all`.
+- A new session takes the line, with the owner's approval as in 5.7, from the line's last pushed commits; work that was never pushed is lost.
+- It releases the line's stale claims, or takes over those it continues (5.6), records in a `heads-up` what it found (branches and their SHAs, the state of the task, unhandled messages), updates the status file and continues as in 5.7, receiving steps 3 and 4, with that heads-up in place of the transfer handover.
+
+### 5.9 Retiring or renaming a line
+
+- **Retiring.** The line finishes or hands over its tasks, releases its claims and sets `State: retired` in its status file. The lead removes its row from the role table through the main branch, with the owner's approval (3.2). A retired line's status file stays, so that its history can be read.
+- **Renaming** is retiring the old name and joining under the new one (5.5). Messages that are still addressed to the old name go to the lead.
+- **A rejected row.** When the owner rejects a pending session's row (5.5), the session sets its status to `State: retired` and stops.
+
 ## 6. The life of a change
 
 1. **Request.** The owner asks, directly or through the lead. Open points are clarified with the owner (3.4).
-2. **Plan.** The lead or line decides the shape, the area and whether a builder is needed. Dependent work waits for its real contract; independent work runs in parallel.
+2. **Plan.** The lead or line decides the shape, the area and whether a builder is needed. Dependent work waits for its real contract; independent work runs in parallel. Before handing out parallel work, the lead SHOULD check that the areas do not overlap, that each interface between them has one named owner, that what others depend on comes first, and that each task has one claim. Where areas overlap, the work runs one after the other.
 3. **Build.** In its own worktree on its own branch. The builder writes tests, runs the project's checks and reports with evidence (section 8).
 4. **Self-check.** The lead or line reviews the diff for scope, correctness, security, data handling and conventions, and looks at the result (screens, outputs) itself. It confirms delegated work from the branch's actual diff and check output, not from the builder's report.
 5. **Independent review.** New features and redesigns get a reviewer who did not build them (section 9). Small fixes rely on automated checks.
@@ -346,6 +371,8 @@ A CI failure, a failed deployment or a failed smoke check goes back to the line 
 
 Rollback: the release record MUST contain the exact rollback command. Prefer migrations that only add structure, so they can stay in place when the code is rolled back.
 
+**Rolling back a release.** Rolling back changes what is deployed, so it needs the owner's direct approval, or a standing authorization for incidents (3.3). The release role runs the rollback command recorded for that release and holds `release-main` while it does. The main branch then gets a revert commit that goes through this section like any change, and a `released` message says what is live. `adapters/modes.md` (section 14, incident response) gives the steps for an outage.
+
 ## 8. Reports
 
 Every report from a builder, reviewer or release agent states:
@@ -363,7 +390,12 @@ A report MUST NOT say a check passed when it was skipped, blocked or only read.
 ## 9. Independent review
 
 - The reviewer gets a compact task packet (`templates/review-packet.md`): branch and commit, scope, expected behaviour, how to run it with synthetic data, and where to save evidence. Not the full conversation.
-- The reviewer uses the product like a user (real controls, several screen sizes, every language and theme the product supports, error and empty states) and reads the code it needs.
+- The reviewer checks what the kind of change calls for, and reads the code it needs:
+  - a user interface: uses the product like a user (real controls, several screen sizes, every language and theme the product supports, error and empty states);
+  - a library: the public API, tests for new behaviour, compatibility with existing callers;
+  - a command-line tool: options, exit codes, output and error messages, old invocations that must keep working;
+  - documentation: links, facts against the code, versions and examples.
+- The lead decides when a change is small enough to rely on automated checks instead (6.5).
 - Findings are ranked P1 (blocks release), P2 (fix before release; a new P2 found only in a re-check becomes a follow-up, below) and P3 (fix when convenient). Each has the observation, the expectation and evidence (screenshot, log, command).
 - The reviewer changes nothing, commits nothing (not even to the coordination branch), starts no further agents and touches no production system. It reports to whoever started it, who sends `returned` when changes are needed, or `review` when the findings are to be recorded without sending the work back.
 - A verdict is bound to the commit it names (`Reviewed: <branch> at <SHA>`, a line that tools may parse; give the full SHA). It covers later commits only when each one merges the main branch without conflicts or changes documentation only (the rule of 3.1); after any other change the work needs a re-check before release.
@@ -436,5 +468,5 @@ A newer release of the protocol changes the shared rules and the scripts every s
 
 These complete 3.4.
 
-- A message `to: owner` is claimed like a message to a shared role: the session that claims `msg-<timestamp>-<from>` first handles it (a lead answers from the records or asks the owner; a liaison only asks the owner); the others mark it read. A message whose claim expired without a record in `decisions/` goes back to the lead's open questions for the owner.
+- A message `to: owner` is claimed like a message to a shared role: the session that claims `msg-<message name>` (5.6) first handles it (a lead answers from the records or asks the owner; a liaison only asks the owner); the others mark it read. A message whose claim expired without a record in `decisions/` goes back to the lead's open questions for the owner.
 - When no lead or liaison session has joined yet, such a message waits for the first one, and `doctor.sh` warns. When no lead is running, a `question` to the lead waits on the coordination branch for the next lead session.

@@ -43,7 +43,9 @@ changes.
      <your-project>` with the approved release. It installs that release with its own
      `install.sh`, overwriting `tools/multi-agent-protocol/` (local edits there are lost),
      and shows how the rules block changed. It refuses a release that is not newer than
-     the copy unless you pass `--force`. Commit, and request a release.
+     the copy unless you pass `--force`. Add `--commit <SHA>`, the commit `upgrade.sh --check`
+     printed, so that the install refuses a tag that moved since you checked. Commit, and
+     request a release.
    - **Claude Code plugin:** update by hand in `/plugin`. Keep the marketplace's
      auto-update off under every policy: it installs every release, major versions
      included, without the lead. Turn it on only if the owner grants exactly that as a

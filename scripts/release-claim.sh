@@ -1,6 +1,8 @@
 #!/bin/sh
 # Release a claim by deleting its file (PROTOCOL.md 5.6).
 # Usage: release-claim.sh [--stale] <line> <task-slug>
+#   <task-slug> may be a message file (messages/<name>.md) for its message claim
+#   msg-<name, each _ written as -> (PROTOCOL.md 5.6)
 #   --stale  release another line's claim that is past its expires time
 #            (send a heads-up naming the stale claim first)
 # Exit status: 0 when released, 1 when the claim is not yours (or not stale), 2 on error.
@@ -13,7 +15,7 @@ stale=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --stale) stale=1 ;;
-        -h | --help) sed -n '2,6s/^# \{0,1\}//p' "$0"; exit 0 ;;
+        -h | --help) sed -n '2,8s/^# \{0,1\}//p' "$0"; exit 0 ;;
         -*) die "unknown option '$1'" ;;
         *) break ;;
     esac
@@ -23,6 +25,7 @@ done
 line=$1
 task=$2
 check_name line "$line"
+case "$task" in *.md) task=$(message_claims "$task" | head -n 1) ;; esac
 check_name task-slug "$task"
 
 require_repo

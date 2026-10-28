@@ -31,18 +31,28 @@ if [ -n "$local_file" ]; then
     [ -f "$local_file" ] || die "no such file: ${local_file}"
     cp "$local_file" "${work}/record" || die "cannot read ${local_file}"
 else
-    fetch_coordination
+    # Without prompts and with a time limit: runner.sh calls this with nobody there.
+    quiet_git "${MAP_FETCH_SECONDS:-10}" /dev/null fetch --quiet "$MAP_REMOTE" "+refs/heads/${MAP_BRANCH}:$(coordination_ref)" ||
+        die "cannot fetch '${MAP_BRANCH}' from '${MAP_REMOTE}' (offline, no access, timed out, or no such branch)"
     show_file "$1" >"${work}/record" || die "no file '$1' on '${MAP_BRANCH}'"
 fi
 
-git fetch --quiet "$MAP_MAIN_REMOTE" "+refs/heads/${MAP_MAIN}:$(main_ref)" 2>/dev/null ||
-    die "cannot fetch '${MAP_MAIN}' from '${MAP_MAIN_REMOTE}'"
-main_rules | sed -n 's/^[[:space:]]*-[[:space:]]*Owner signing key:[[:space:]]*\([A-Za-z0-9._-][A-Za-z0-9._-]*\)[[:space:]][[:space:]]*\(ssh-[a-z0-9-]* [A-Za-z0-9+/=]*\).*$/\1 \2/p' >"${work}/allowed_signers"
+fetch_main_quietly || die "cannot fetch '${MAP_MAIN}' from '${MAP_MAIN_REMOTE}' (offline, no access or timed out)"
+# Any OpenSSH key type: ssh-ed25519, ssh-rsa, ecdsa-sha2-nistp256, and security keys
+# (sk-ssh-ed25519@openssh.com, sk-ecdsa-sha2-nistp256@openssh.com).
+main_rules | sed -n 's/^[[:space:]]*-[[:space:]]*Owner signing key:[[:space:]]*\([A-Za-z0-9._-][A-Za-z0-9._-]*\)[[:space:]][[:space:]]*\([a-z][a-z0-9@.-]* [A-Za-z0-9+/=]*\).*$/\1 \2/p' >"${work}/allowed_signers"
 [ -s "${work}/allowed_signers" ] || die "no '- Owner signing key:' line in the agent rules files on ${MAP_MAIN_REMOTE}/${MAP_MAIN}"
 
-# The signed content is everything before the signature block.
-sed '/^-----BEGIN SSH SIGNATURE-----$/,$d' "${work}/record" >"${work}/content"
-sed -n '/^-----BEGIN SSH SIGNATURE-----$/,/^-----END SSH SIGNATURE-----$/p' "${work}/record" >"${work}/signature"
+# The signed content is everything before the signature block, byte for byte (CRLF line
+# endings included); the block itself is read with any CR removed, so a record whose
+# line endings were converted to CRLF after signing still finds its signature.
+LC_ALL=C awk '{ line = $0; sub(/\r$/, "", line) } line == "-----BEGIN SSH SIGNATURE-----" { exit } { print }' \
+    "${work}/record" >"${work}/content"
+LC_ALL=C awk '
+    { line = $0; sub(/\r$/, "", line) }
+    line == "-----BEGIN SSH SIGNATURE-----" { inside = 1 }
+    inside { print line }
+    inside && line == "-----END SSH SIGNATURE-----" { exit }' "${work}/record" >"${work}/signature"
 if [ ! -s "${work}/signature" ]; then
     note "not signed"
     exit 1
@@ -62,6 +72,15 @@ case "$trailing" in
     unterminated) note "the signature block has no '-----END SSH SIGNATURE-----' line"; exit 1 ;;
     trailing) note "text after the signature block is not signed; only blank lines and, in a decision, 'superseded-by: <YYYY-MM-DD>_<topic>.md' lines may follow it"; exit 1 ;;
 esac
+# On the branch, each superseded-by: line names a decision that exists.
+if [ -z "$local_file" ]; then
+    for successor in $(LC_ALL=C awk '{ line = $0; sub(/\r$/, "", line) } ended && sub(/^superseded-by: /, "", line) { print line } line == "-----END SSH SIGNATURE-----" { ended = 1 }' "${work}/record"); do
+        git cat-file -e "$(coordination_ref):decisions/${successor}" 2>/dev/null || {
+            note "superseded-by: names decisions/${successor}, which does not exist on '${MAP_BRANCH}'"
+            exit 1
+        }
+    done
+fi
 
 while read -r owner _; do
     if ssh-keygen -Y verify -f "${work}/allowed_signers" -I "$owner" -n map-approval \

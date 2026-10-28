@@ -150,6 +150,8 @@ message_author_findings() {
             messages/*_*_*.md)
                 sender=${entry#messages/*_}
                 sender=${sender%%_*}
+                # An outside correspondent is never a line (PROTOCOL.md 2.4).
+                case "$sender" in ext-*) continue ;; esac
                 printf '%s\n' "$status_lines" | grep -Fqx -- "$sender" || continue
                 author_names_line "$author" "$sender" || printf "messages from '%s' committed as '%s'\n" "$sender" "$author"
                 ;;
@@ -250,6 +252,58 @@ if printf '%s\n' "$headers" | LC_ALL=C awk -F '\t' '{ gsub(/,/, " ", $4); if (("
         warn "messages are addressed to 'owner', but no status file has Role lead or liaison to receive them (PROTOCOL.md 3.4)"
 fi
 
+# Senders and recipients of the last MAP_AUTHOR_CHECK (default 100) messages: a line (a
+# status file or a row of the role table), a role, owner, all, or a listed outside
+# correspondent (PROTOCOL.md 2.4). A correspondent's name starts with "ext-"; it is never
+# a line, writes no status file, and sends only questions and heads-ups.
+correspondents=$(listed_correspondents)
+status_names=$(git ls-tree --name-only "$ref" status/ | sed -n 's|^status/\(.*\)\.md$|\1|p')
+role_names=$(printf '%s\n' "$roles" | cut -f 2; main_rules | LC_ALL=C awk '
+    /^\|[ \t]*Line[ \t]*\|/ { in_table = 1; next }
+    in_table && /^\|[ \t]*:?-/ { next }
+    in_table && /^\|/ { split($0, cell, "|"); role = cell[3]; gsub(/`/, "", role); sub(/^[ \t]+/, "", role); sub(/[ \t(].*$/, "", role); if (role != "") print role; next }
+    { in_table = 0 }')
+known_names=$({
+    printf '%s\n' owner all lead line release relay liaison builder reviewer
+    printf '%s\n' "$status_names" "$table_lines" "$role_names" "$correspondents"
+} | grep -v '^<' | LC_ALL=C sort -u)
+recent=$(messages_in_push_order | tail -n "${MAP_AUTHOR_CHECK:-100}")
+address_findings=$({ printf '%s\n' "$headers"; printf '#recent\n%s\n' "$recent"; } |
+    MAP_KNOWN=$known_names MAP_CORRESPONDENTS=$correspondents MAP_TABLE=${table_lines:+1} LC_ALL=C awk -F '\t' '
+    BEGIN {
+        n = split(ENVIRON["MAP_KNOWN"], list, "\n"); for (i = 1; i <= n; i++) known[list[i]] = 1
+        n = split(ENVIRON["MAP_CORRESPONDENTS"], list, "\n"); for (i = 1; i <= n; i++) if (list[i] != "") listed[list[i]] = 1
+        table = ENVIRON["MAP_TABLE"] != ""
+    }
+    !in_recent && $0 == "#recent" { in_recent = 1; next }
+    !in_recent { type[$1] = $2; from[$1] = $3; to[$1] = $4; next }
+    $0 == "" || !($0 in from) { next }
+    {
+        sender = from[$0]
+        if (sender ~ /^ext-/) {
+            if (!(sender in listed)) unlisted[sender]++
+            else if (type[$0] != "question" && type[$0] != "heads-up") wrong_type[sender]++
+        } else if (table && sender != "" && !(sender in known)) unknown_sender[sender]++
+        if (!table) next
+        recipients = to[$0]; gsub(/,/, " ", recipients)
+        m = split(recipients, names, /[ \t]+/)
+        for (j = 1; j <= m; j++) if (names[j] != "" && !(names[j] in known)) unknown_recipient[names[j]]++
+    }
+    END {
+        for (name in unlisted) printf "%d message(s) from \047%s\047, an outside correspondent that the agent rules file does not list under \047Outside correspondents\047 (PROTOCOL.md 2.4)\n", unlisted[name], name
+        for (name in wrong_type) printf "%d message(s) from correspondent \047%s\047 that are neither question nor heads-up (PROTOCOL.md 2.4)\n", wrong_type[name], name
+        for (name in unknown_sender) printf "%d message(s) from \047%s\047, which is not a line, a role, owner or a listed correspondent\n", unknown_sender[name], name
+        for (name in unknown_recipient) printf "%d message(s) to \047%s\047, which is not all, owner, a line, a role or a listed correspondent (a typo?)\n", unknown_recipient[name], name
+    }' | LC_ALL=C sort)
+if [ -n "$address_findings" ]; then
+    while IFS= read -r finding; do warn "$finding"; done <<EOF_ADDRESSES
+$address_findings
+EOF_ADDRESSES
+fi
+for status_name in $status_names; do
+    case "$status_name" in ext-*) warn "status/${status_name}.md: an outside correspondent writes no status file (PROTOCOL.md 2.4)" ;; esac
+done
+
 # Status files: required fields, and Last-read pointing at a real message.
 for path in $(git ls-tree --name-only "$ref" status/); do
     case "$path" in */.gitkeep) continue ;; *.md) ;; *) warn "unexpected file '${path}'"; continue ;; esac
@@ -281,10 +335,20 @@ for place in $(git grep -n -I -E -e "$MAP_SECRET_ERE" "$ref" -- . 2>/dev/null | 
     warn "${place}: looks like a private key or an access token. ${MAP_SECRET_HELP}"
 done
 
-# Claims: required fields and stale leases.
+# Claims: required fields and stale leases; a message claim names a message, as
+# msg-<message name, each _ written as -> or the older msg-<timestamp>-<from> (PROTOCOL.md 5.6).
 now=$(utc_now)
+message_claim_names=$(git ls-tree --name-only "$ref" messages/ | LC_ALL=C awk -F '_' '
+    { name = $0; sub(/^messages\//, "", name); sub(/\.md$/, "", name); dashed = name; gsub(/_/, "-", dashed)
+      print "msg-" dashed; if (split(name, part, "_") >= 3) print "msg-" part[1] "-" part[2] }')
 for path in $(git ls-tree --name-only "$ref" claims/); do
     case "$path" in */.gitkeep) continue ;; *.md) ;; *) warn "unexpected file '${path}'"; continue ;; esac
+    case "$path" in
+        claims/msg-[0-9]*)
+            claimed=${path#claims/}
+            printf '%s\n' "$message_claim_names" | grep -Fqx -- "${claimed%.md}" ||
+                warn "${path}: a message claim that names no message (msg-<message name, each _ written as ->, PROTOCOL.md 5.6)" ;;
+    esac
     content=$(show_file "$path")
     holder=$(printf '%s\n' "$content" | status_value Owner)
     expires=$(printf '%s\n' "$content" | status_value Expires)
@@ -303,6 +367,85 @@ for path in $(git ls-tree --name-only "$ref" decisions/); do
         *) warn "decision name '${path}' does not match <YYYY-MM-DD>_<topic>.md" ;;
     esac
 done
+
+# Decisions are never edited or deleted (PROTOCOL.md 5.2): the only change allowed is
+# "superseded-by: <YYYY-MM-DD>_<topic>.md" lines (and blank lines) appended at the end, as
+# decide.sh --supersede writes them, naming a decision that exists.
+# A change that an owner decision acknowledges with a line "acknowledges: decisions/<file>
+# at <commit>" (before any signature block; 7 to 40 hex digits of the commit that made
+# the change) is a warning that names that decision (PROTOCOL.md 5.2).
+report_change() {
+    acknowledger=$(printf '%s\n' "$acknowledgements" | awk -v commit="$commit" -v old="$path" -v new="$new_path" \
+        '($1 == old || (new != "" && $1 == new)) && index(commit, $2) == 1 { print $3; exit }')
+    if [ -n "$acknowledger" ]; then
+        printf 'WARNING %s; acknowledged by %s\n' "$1" "$acknowledger"
+    else
+        printf 'ERROR %s; a decision is never changed, only superseded (an owner decision with the line "acknowledges: %s at %s" accepts the change)\n' "$1" "$path" "$short"
+    fi
+}
+decision_findings() {
+    while IFS= read -r entry; do
+        case "$entry" in
+            "@@ "*) commit=${entry#@@ }; continue ;;
+            "") continue ;;
+        esac
+        path=$(printf '%s\n' "$entry" | cut -f 2)
+        new_path=$(printf '%s\n' "$entry" | cut -f 3)
+        short=$(git rev-parse --short "$commit")
+        case "$entry" in
+            M*)
+                git cat-file -p "${commit}^:${path}" >"$work_file" 2>/dev/null || continue
+                old_size=$(wc -c <"$work_file" | tr -d ' ')
+                if ! git cat-file -p "${commit}:${path}" | head -c "$old_size" | cmp -s - "$work_file"; then
+                    report_change "${path}: edited after it was recorded (commit ${short})"
+                    continue
+                fi
+                git cat-file -p "${commit}:${path}" | tail -c "+$((old_size + 1))" | tr -d '\r' |
+                    while IFS= read -r added || [ -n "$added" ]; do
+                        if printf '%s\n' "$added" | grep -q '^[[:space:]]*$'; then
+                            continue
+                        elif printf '%s\n' "$added" | grep -Eq '^superseded-by: [0-9]{4}-[0-9]{2}-[0-9]{2}_[A-Za-z0-9.-]+\.md$'; then
+                            git cat-file -e "${ref}:decisions/${added#superseded-by: }" 2>/dev/null ||
+                                printf 'WARNING %s: superseded-by names decisions/%s, which does not exist\n' "$path" "${added#superseded-by: }"
+                        else
+                            report_change "${path}: text appended after it was recorded (commit ${short}) that is not a superseded-by: <YYYY-MM-DD>_<topic>.md line"
+                            break
+                        fi
+                    done
+                ;;
+            D*) report_change "${path}: deleted (commit ${short})" ;;
+            *) report_change "${path}: renamed or replaced (commit ${short})" ;;
+        esac
+    done
+}
+work_file=$(mktemp "${TMPDIR:-/tmp}/map-doctor.XXXXXX") || die "cannot create a temp file"
+trap 'rm -f "$work_file"' EXIT
+trap 'rm -f "$work_file"; exit 130' HUP INT TERM
+acknowledgements=$(for path in $(git ls-tree --name-only "$ref" decisions/); do
+    git cat-file -p "${ref}:${path}" | tr -d '\r' | LC_ALL=C awk -v file="$path" '
+        $0 == "-----BEGIN SSH SIGNATURE-----" { exit }
+        NF == 4 && $1 == "acknowledges:" && $3 == "at" && $2 ~ /^decisions\/[A-Za-z0-9._-]+\.md$/ &&
+            $4 ~ /^[0-9a-f]+$/ && length($4) >= 7 && length($4) <= 40 { print $2, $4, file }'
+done)
+# Under "- Approval records: strict" (PROTOCOL.md 3.3) only a decision with a valid owner
+# signature acknowledges a change.
+if [ -n "$acknowledgements" ] && [ "$(rules_word 'Approval records')" = strict ]; then
+    acknowledgements=$(printf '%s\n' "$acknowledgements" | while read -r changed commit_prefix acknowledger; do
+        "${MAP_SCRIPT_DIR}/verify.sh" "$acknowledger" >/dev/null 2>&1 && printf '%s %s %s\n' "$changed" "$commit_prefix" "$acknowledger"
+    done)
+fi
+decision_problems=$(git log --format='@@ %H' --name-status --diff-filter=MDRT "$ref" -- decisions/ | grep -v '/\.gitkeep$' | decision_findings)
+rm -f "$work_file"
+if [ -n "$decision_problems" ]; then
+    while IFS= read -r problem; do
+        case "$problem" in
+            "ERROR "*) error "${problem#ERROR }" ;;
+            "WARNING "*) warn "${problem#WARNING }" ;;
+        esac
+    done <<EOF_DECISIONS
+$decision_problems
+EOF_DECISIONS
+fi
 
 # Versions: sessions on different versions can disagree (UPGRADING.md).
 versions=""

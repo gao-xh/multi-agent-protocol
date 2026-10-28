@@ -1,6 +1,6 @@
 {
   "name": "multi-agent-protocol",
-  "version": "2.0.0-rc.3",
+  "version": "2.0.0",
   "description": "MAP coordination and project roles for Codex, with an optional session-start inbox summary.",
   "author": {
     "name": "Xuehan Gao",

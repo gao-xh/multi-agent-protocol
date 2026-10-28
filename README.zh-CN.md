@@ -4,8 +4,6 @@
 
 MAP 让一组 AI 编程 agent（Claude Code、Codex 等）真正一起替你做项目，像一个团队：lead 规划和分派任务，其他 agent 并行完成各自的部分、互相审查，你只在需要决定时出场。
 
-> **候选版 2.0.0-rc.3** 在 `next` 分支（tag `v2.0.0-rc.3`）；正式版 2.0.0 发布前，`main` 和插件市场仍是 1.3。想试用：`git clone --branch v2.0.0-rc.3 https://github.com/gao-xh/multi-agent-protocol`，再把这个文件夹添加为插件市场（`/plugin marketplace add ./multi-agent-protocol`），或者用其中的 `scripts/install.sh` 装进你的项目，用它配置项目时，对 agent 说："用 https://github.com/gao-xh/multi-agent-protocol 的 tag v2.0.0-rc.3 配置这个项目"。从 1.3 升级见 [UPGRADING.md](UPGRADING.md)，改了什么见 [CHANGELOG.md](CHANGELOG.md)。
-
 ## 团队怎么协作
 
 - **分工。** lead 把任务拆成几块，分给不同的开发线：每条线是一个 agent，有自己的分支和负责的区域，写在角色表里。各条线并行开发，任何角色都可以同时开多个会话。

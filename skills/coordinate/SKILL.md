@@ -22,6 +22,7 @@ Scripts (`S=${CLAUDE_PLUGIN_ROOT}/scripts`):
 | Claims and decisions | `$S/status.sh --claims`, `$S/status.sh --decisions` |
 | Claim or renew a task | `$S/claim.sh [--hours N] [--branch B] <line> <task-slug>`. Exit 1 means taken |
 | Release a claim | `$S/release-claim.sh <line> <task-slug>`; `--stale` only after a heads-up |
+| Take over a stale claim | after a `heads-up` that names the task: `$S/claim.sh --take-stale <that heads-up> <line> <task-slug>` (PROTOCOL.md 5.6) |
 | Remember this worktree's line name | `$S/set-line.sh <line>` (enables the session-start summary and the inbox monitor); `$S/set-line.sh` prints it. It binds every later session in this worktree to that line; a second session here gets "another session already watches line ..." from the monitor and must not act as the line |
 | Session-start summary | `$S/session-start.sh` (unread messages and claims; silent without a line name) |
 | Start a local agent for each new message (another session hands it work) | `$S/runner.sh <line> -- <agent command>`, for example `-- opencode run` or `-- claude -p`; long-running, ask the owner first (adapters/modes.md, mode 15) |

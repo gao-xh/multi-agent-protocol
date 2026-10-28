@@ -1,6 +1,6 @@
 {
   "name": "multi-agent-protocol",
-  "version": "2.0.0-rc.3",
+  "version": "2.0.0",
   "description": "MAP (Multi-Agent Protocol): governance and release protocol for several AI coding agents working on one project for one owner: roles, owner authority, isolation, a git-based coordination branch, and a strict release role.",
   "author": {
     "name": "Xuehan Gao",

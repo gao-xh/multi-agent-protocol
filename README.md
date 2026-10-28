@@ -18,15 +18,6 @@ MAP makes a group of AI coding agents (Claude Code, Codex and others) actually w
 your project together, as a team: a lead plans and hands out the work, the other agents build their parts in
 parallel and review each other, and you only step in for decisions.
 
-> **Release candidate 2.0.0-rc.3** is on the branch `next` (tag `v2.0.0-rc.3`); `main` and
-> the plugin marketplace stay on 1.3 until 2.0.0. To try it, take the files from the tag:
-> `git clone --branch v2.0.0-rc.3 https://github.com/gao-xh/multi-agent-protocol`, then
-> add that folder as the marketplace (`/plugin marketplace add ./multi-agent-protocol`), or
-> run its `scripts/install.sh` on your project. To set up a project with it, tell the agent:
-> "Set up this project with https://github.com/gao-xh/multi-agent-protocol at tag
-> v2.0.0-rc.3". Upgrading from 1.3: [UPGRADING.md](UPGRADING.md). What changed:
-> [CHANGELOG.md](CHANGELOG.md).
-
 ## How the team works
 
 - **Division of work.** The lead splits a task into parts and gives each to a line of

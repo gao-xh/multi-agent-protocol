@@ -38,20 +38,10 @@ git rev-parse --git-dir >/dev/null 2>&1 || exit 0
 line=$(stored_line) || exit 0
 case "$line" in "" | .* | *[!A-Za-z0-9.-]*) exit 0 ;; esac
 
-# Fetch, but never hold up the session for long.
-git fetch --quiet "$MAP_REMOTE" "+refs/heads/${MAP_BRANCH}:$(coordination_ref)" >/dev/null 2>&1 &
-fetch_pid=$!
-waited=0
-while kill -0 "$fetch_pid" 2>/dev/null; do
-    if [ "$waited" -ge "${MAP_FETCH_SECONDS:-10}" ]; then
-        kill "$fetch_pid" 2>/dev/null
-        stale=" (fetch timed out; showing the last fetched copy)"
-        break
-    fi
-    sleep 1
-    waited=$((waited + 1))
-done
-wait "$fetch_pid" 2>/dev/null
+# Fetch, but never hold up the session for long, nor wait on a prompt (quiet_git stops
+# git with its helper processes after the time limit).
+quiet_git "${MAP_FETCH_SECONDS:-10}" /dev/null fetch --quiet "$MAP_REMOTE" "+refs/heads/${MAP_BRANCH}:$(coordination_ref)"
+[ $? -ne 124 ] || stale=" (fetch timed out; showing the last fetched copy)"
 git rev-parse --verify --quiet "$(coordination_ref)" >/dev/null || exit 0
 
 unread=$("${MAP_SCRIPT_DIR}/inbox.sh" --no-fetch "$line" 2>/dev/null)

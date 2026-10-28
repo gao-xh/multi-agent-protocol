@@ -14,6 +14,75 @@ The protocol, the scripts and the Claude Code plugin share one version number, f
 
 Major and minor releases are published first as release candidates (`vX.Y.0-rc.N`).
 
+## 2.0.0 - 2026-10-28
+
+### Added
+
+- Blocked work reaches the owner (PROTOCOL.md 3.4): a blocked task is reported to the
+  owner with what blocks it, since when and what would unblock it; lines and relays tell
+  the lead, which passes it on.
+
+- New rules from the audit of 2026-10-28, decided by the owner item by item: disputes and
+  repeated violations (2), conflicting owner instructions (3.3, 3.5), lost or compromised
+  signing keys (3.6), edited decisions, the `from:` header as a claim, and UTC times with
+  two minutes of tolerance (5.2), interface heads-ups that name their users and a deadline
+  (5.3; the deadline defaults to four hours, and a change that keeps every old form
+  working may merge before it), a stale `release-main` and message claims named after
+  the message (5.6), a lost line (5.8), retiring or renaming a line (5.9), checks before
+  parallel work (6.2), rolling back a release (7), review checklists by kind of change
+  (9). The release request and heads-up templates gain the matching fields; status states
+  gain `suspended` and `retired`.
+
+- Documentation of `claim.sh --take-stale` (PROTOCOL.md 5.6, skills/coordinate) and
+  `upgrade.sh --commit` (UPGRADING.md).
+
+- `doctor.sh` knows the outside correspondents that the agent rules file lists under
+  "Outside correspondents" (PROTOCOL.md 2.4): it warns about an `ext-` sender that is not
+  listed, a correspondent's message that is neither a question nor a heads-up, and a
+  correspondent's status file, and never counts a correspondent as a line. It also warns
+  about senders and recipients that are not a line, a role, `owner`, `all` or a listed
+  correspondent, such as `to: laed` (audit O8).
+- `claim.sh --take-stale <heads-up>` takes over a stale claim in one push, after a heads-up
+  from the line that names the task and was sent after the claim went stale (PROTOCOL.md
+  5.6; audit O5).
+- `upgrade.sh --commit <SHA>` installs a release only at the commit the owner approved,
+  and `upgrade.sh --check` prints the command with it (audit S5).
+- `inbox.sh --show` marks a message that a later message of the same sender corrects, and
+  says so when a message of another sender claims to correct it (audit O4).
+- Message claims in the form `msg-<message name>` (PROTOCOL.md 2.1, 5.6): `claim.sh` and
+  `release-claim.sh` take a message file in place of the task slug and claim or release
+  its message claim; `claim.sh` counts an older-form claim `msg-<timestamp>-<from>` of the
+  same message by another line as taken; `inbox.sh --show` marks a message that is
+  claimed in either form; `doctor.sh` warns about a message claim that names no message.
+- A decision with a line `acknowledges: decisions/<file> at <commit>` accepts a change to
+  another decision (PROTOCOL.md 5.2): `doctor.sh` then reports that change as a warning
+  that names the decision, and `decide.sh` refuses such a line unless its commit is on the
+  branch and changed that file.
+
+### Security
+
+- `runner.sh` refuses an owner command whose `id:` an earlier command anywhere on the
+  coordination branch carries, not only one this checkout has seen, when that earlier
+  command would also count for the relay (it passes the check and is addressed to it), so
+  that junk sent first with the id of a real command does not block it (audit S6;
+  PROTOCOL.md 2.3, decision N1).
+- `doctor.sh` reports a decision that was edited, deleted or renamed, or that has text
+  appended other than `superseded-by: <YYYY-MM-DD>_<topic>.md` lines, and warns about a
+  superseded-by line that names no decision (audit S4).
+- `upgrade.sh` refuses to install when the release's tag moved while it was fetched
+  (audit S5).
+- `verify.sh` refuses, on the branch, a `superseded-by:` line that names a decision that
+  does not exist; it fetches without prompts and with a time limit, as
+  `session-start.sh` now does too (audit S8).
+
+### Fixed
+
+- `verify.sh` accepts owner keys of every OpenSSH type (ECDSA, security keys
+  `sk-ssh-ed25519@openssh.com`), not only `ssh-*` (audit S7), and records whose line
+  endings are CRLF.
+- `status.sh` and `mark-read.sh` change the fields only above the first `## ` heading and
+  in `## Environment`, so text in other sections stays.
+
 ## 2.0.0-rc.3 - 2026-10-28
 
 The third release candidate of 2.0.0: the Codex plugin, security fixes from an audit

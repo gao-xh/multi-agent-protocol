@@ -6,10 +6,12 @@
 #            these scripts), the newest release upstream and its commit, the CHANGELOG
 #            sections in between, and whether the agent rules block changes. Exit 0 when
 #            the release is newer, 1 when not, 2 on error.
-#        upgrade.sh [--to X.Y.Z] [--dest DIR] [--force] <project-directory>
+#        upgrade.sh [--to X.Y.Z] [--commit SHA] [--dest DIR] [--force] <project-directory>
 #            install release X.Y.Z or X.Y.Z-rc.N (default: the newest) into <project-directory>/DIR
 #            with that release's install.sh, and show how the rules block changes.
-#            Refuses a release that is not newer than the copy in DIR unless --force.
+#            --commit: the commit the owner approved (as --check printed it); refuses to
+#            install when the release's tag no longer points at it. Refuses a release that
+#            is not newer than the copy in DIR unless --force.
 # Upstream: MAP_UPSTREAM (default: the public repository). DIR defaults to
 # tools/multi-agent-protocol. Changes only files in DIR; never edits AGENTS.md, commits
 # or pushes. Claude Code plugin users update the plugin instead, with the owner's approval.
@@ -67,6 +69,7 @@ main() {
     check=0
     force=0
     to=""
+    approved=""
     dest=tools/multi-agent-protocol
     seconds=${MAP_UPGRADE_SECONDS:-60}
     while [ $# -gt 0 ]; do
@@ -74,8 +77,9 @@ main() {
             --check) check=1 ;;
             --force) force=1 ;;
             --to) [ $# -ge 2 ] || die "--to needs a version"; to=${2#v}; shift ;;
+            --commit) [ $# -ge 2 ] || die "--commit needs a commit SHA"; approved=$2; shift ;;
             --dest) [ $# -ge 2 ] || die "--dest needs a value"; dest=$2; shift ;;
-            -h | --help) sed -n '2,15s/^# \{0,1\}//p' "$0"; exit 0 ;;
+            -h | --help) sed -n '2,17s/^# \{0,1\}//p' "$0"; exit 0 ;;
             -*) die "unknown option '$1'" ;;
             *) break ;;
         esac
@@ -84,9 +88,10 @@ main() {
     if [ -n "$to" ]; then
         printf '%s\n' "$to" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$' || die "--to takes a version such as 1.6.0 or 2.0.0-rc.1"
     fi
+    case "$approved" in "") ;; *[!0-9a-f]*) die "--commit takes a commit SHA (7 to 40 hex digits)" ;; ??????? | ????????*) ;; *) die "--commit takes a commit SHA (7 to 40 hex digits)" ;; esac
     case "$dest" in "" | . | ./ | /* | *..*) die "--dest must be a folder inside the project" ;; esac
     [ $# -le 1 ] || die "usage: upgrade.sh [--check] [--to X.Y.Z] [--dest DIR] [--force] [<project-directory>]"
-    [ "$check" -eq 1 ] || [ $# -eq 1 ] || die "usage: upgrade.sh [--to X.Y.Z] [--dest DIR] [--force] <project-directory>"
+    [ "$check" -eq 1 ] || [ $# -eq 1 ] || die "usage: upgrade.sh [--to X.Y.Z] [--commit SHA] [--dest DIR] [--force] <project-directory>"
 
     # The version in use: the project's copy, or these scripts.
     project=""
@@ -122,6 +127,16 @@ main() {
 
     quiet_git "$seconds" /dev/null clone --quiet --depth 1 --branch "v${target}" "$MAP_UPSTREAM" "${work}/release" ||
         die "cannot fetch release v${target} from ${MAP_UPSTREAM}"
+    # What was cloned is what was listed (a tag moved in between is refused), and, with
+    # --commit, what the owner approved (audit S5).
+    cloned=$(git -C "${work}/release" rev-parse HEAD) || die "cannot read the commit of release v${target}"
+    [ -z "$commit" ] || [ "$cloned" = "$commit" ] ||
+        die "release v${target} moved while it was fetched (listed ${commit}, cloned ${cloned}); run again"
+    commit=$cloned
+    case "$commit" in
+        "${approved}"*) ;;
+        *) die "release v${target} is at commit ${commit}, not at the approved commit ${approved}: the tag was moved; ask the owner again with upgrade.sh --check" ;;
+    esac
 
     if [ "$check" -eq 1 ]; then
         printf 'In use: %s%s. Newest release: %s. Checked release: v%s at commit %s (%s).\n' \
@@ -184,8 +199,8 @@ main() {
         else
             printf 'Within the owner'"'"'s standing authorization: the lead may upgrade to v%s without asking, and tells the owner afterwards (PROTOCOL.md 12.3):\n' "$target"
         fi
-        printf '  sh %s/upgrade.sh --to %s <project-directory>\nClaude Code plugin: update the plugin by hand to the same release; keep its auto-update off, because it also installs major versions (PROTOCOL.md 12.3).\n' \
-            "$MAP_SCRIPT_DIR" "$target"
+        printf '  sh %s/upgrade.sh --to %s --commit %s <project-directory>\nClaude Code plugin: update the plugin by hand to the same release; keep its auto-update off, because it also installs major versions (PROTOCOL.md 12.3).\n' \
+            "$MAP_SCRIPT_DIR" "$target" "$commit"
         exit 0
     fi
 

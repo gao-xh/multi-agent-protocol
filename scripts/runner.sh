@@ -30,8 +30,10 @@
 # Owner commands (type "command", PROTOCOL.md 2.3) are checked before each run, as the
 # line "- Owner commands: strict | lenient | off" on the main branch says (strict when
 # absent): a valid owner signature (verify.sh; lenient also accepts an unsigned command
-# from: owner), addressed to this line, not expired, and an id not used by another
-# message. The prompt names the verified ones and the refused ones with the reason.
+# from: owner), addressed to this line, not expired, and an id that no command pushed
+# before it carries that would also count here (anywhere on the branch, so a copy pushed
+# from another clone is refused too, while junk sent first with the id does not block the
+# real command). The prompt names the verified ones and the refused ones with the reason.
 # One runner per line and worktree (a lock in the git directory); a session that already
 # watches the line here (the Claude Code plugin monitor) also blocks it. Each run, with the
 # agent's output and exit status, is appended to <git dir>/map-runner-<line>.log.
@@ -121,6 +123,43 @@ default_prompt() {
         "$line" "$MAP_SCRIPT_DIR" "$MAP_SCRIPT_DIR" "$line" "$MAP_SCRIPT_DIR" "$line" "$MAP_SCRIPT_DIR"
 }
 
+# "<id> <path>" of each command message among the names on stdin (in push order): an id
+# belongs to the first command that carries it and would also count here (command_check),
+# and a later one is a replay (PROTOCOL.md 2.3). A function, because bash 3.2 cannot parse
+# "case" inside "$( )".
+command_ids() {
+    while IFS= read -r name; do
+        case "
+$commands
+" in *"
+messages/${name}
+"*) ;; *) continue ;; esac
+        carried=$(show_file "messages/${name}" | header_value id)
+        [ -z "$carried" ] || printf '%s messages/%s\n' "$carried" "$name"
+    done
+}
+
+# Whether the command at $1 (text $2) passes the project's check and is addressed to this
+# line (PROTOCOL.md 2.3, steps 1 and 2): sets "check_reason" (empty when it does) and
+# "check_signer" (the owner who signed it, if signed).
+command_check() {
+    check_reason=""
+    check_signer=""
+    if [ "$mode" = off ]; then
+        check_reason="owner commands are off (- Owner commands: off)"
+    elif printf '%s\n' "$2" | tr -d '\r' | grep -qx -- '-----BEGIN SSH SIGNATURE-----'; then
+        check_signer=$("${MAP_SCRIPT_DIR}/verify.sh" "$1" 2>/dev/null) || check_reason="no valid owner signature (verify.sh)"
+    elif [ "$mode" = strict ]; then
+        check_reason="not signed, and the project accepts only signed owner commands (- Owner commands: strict)"
+    elif [ "$(printf '%s\n' "$2" | header_value from)" != owner ]; then
+        check_reason="an unsigned command must say from: owner"
+    fi
+    [ -z "$check_reason" ] || return 0
+    check_recipients=$(printf '%s\n' "$2" | header_value to | tr ',' ' ')
+    printf ' %s ' "$check_recipients" | grep -qF " ${line} " ||
+        check_reason="addressed to '${check_recipients}', not to ${line}"
+}
+
 # Check the unread owner commands for this line (PROTOCOL.md 2.3). Sets "verified" and
 # "refused" (one "path: note" per line) and "allows" (the allow: rules of verified ones).
 check_commands() {
@@ -135,6 +174,7 @@ check_commands() {
     # that a long backlog of other unread messages costs nothing here.
     commands=$(message_headers | LC_ALL=C awk -F '\t' '$2 == "command" { print "messages/" $1 }')
     [ -n "$commands" ] || return 0
+    carriers=$(messages_in_push_order | command_ids)
     for path in $("${MAP_SCRIPT_DIR}/inbox.sh" --no-fetch "$line" 2>/dev/null); do
         case "
 $commands
@@ -144,27 +184,30 @@ ${path}
         text=$(show_file "$path") || continue
         id=$(printf '%s\n' "$text" | header_value id)
         expires=$(printf '%s\n' "$text" | header_value expires)
-        recipients=$(printf '%s\n' "$text" | header_value to | tr ',' ' ')
         earlier=$(awk -v id="$id" '$1 == id { print $2; exit }' "$used" 2>/dev/null)
-        reason=""
-        signer=""
-        if [ "$mode" = off ]; then
-            reason="owner commands are off (- Owner commands: off)"
-        elif printf '%s\n' "$text" | tr -d '\r' | grep -qx -- '-----BEGIN SSH SIGNATURE-----'; then
-            signer=$("${MAP_SCRIPT_DIR}/verify.sh" "$path" 2>/dev/null) || reason="no valid owner signature (verify.sh)"
-        elif [ "$mode" = strict ]; then
-            reason="not signed, and the project accepts only signed owner commands (- Owner commands: strict)"
-        elif [ "$(printf '%s\n' "$text" | header_value from)" != owner ]; then
-            reason="an unsigned command must say from: owner"
+        command_check "$path" "$text"
+        reason=$check_reason
+        signer=$check_signer
+        first_carrier=""
+        if [ -z "$reason" ] && [ -n "$id" ] && check_name_ok "$id"; then
+            # Only an earlier command that would also count here uses up the id, so that
+            # junk sent first with the id of a real command cannot block it (PROTOCOL.md 2.3).
+            for candidate in $(printf '%s\n' "$carriers" | awk -v id="$id" -v me="$path" '$2 == me { exit } $1 == id { print $2 }'); do
+                command_check "$candidate" "$(show_file "$candidate")"
+                if [ -z "$check_reason" ]; then
+                    first_carrier=$candidate
+                    break
+                fi
+            done
         fi
         if [ -n "$reason" ]; then
             :
-        elif ! printf ' %s ' "$recipients" | grep -qF " ${line} "; then
-            reason="addressed to '${recipients}', not to ${line}"
         elif [ -z "$id" ] || ! check_name_ok "$id"; then
             reason="no valid id: header"
         elif [ -n "$earlier" ] && [ "$earlier" != "$path" ]; then
             reason="id ${id} was already used by ${earlier} (a replay)"
+        elif [ -n "$first_carrier" ]; then
+            reason="id ${id} was already used by ${first_carrier}, pushed before it and also valid here (a replay)"
         elif [ -z "$earlier" ]; then
             case "$expires" in
                 [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]Z)

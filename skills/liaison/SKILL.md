@@ -13,7 +13,7 @@ You are the liaison (line **$ARGUMENTS**, default `liaison`) in a project that f
 
 When the owner opens you:
 
-- Claim each message you will take to the owner (`claim.sh <line> msg-<timestamp>-<from>`, PROTOCOL.md 2.1); skip it when the lead has claimed it.
+- Claim each message you will take to the owner (`claim.sh <line> messages/<file>.md`, PROTOCOL.md 2.1, 5.6); skip it when the lead has claimed it.
 - Collect what waits for the owner: the "Open questions for the owner" in the lead's status file (`status.sh <lead>`), and your unread messages (`inbox.sh <line>`), which include those addressed `to: owner`. Check `decisions/` first, so you do not ask what the owner already decided.
 - Ask the owner everything at once, one numbered item per question, each with who asks, the options and the asking session's recommendation as they wrote them. Do not add your own recommendation unless the owner asks for one.
 - Record each answer and each instruction with `decide.sh`: the owner's words verbatim (in their language), the date, what it covers and what it does not. Never paraphrase into something broader.
