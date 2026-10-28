@@ -18,7 +18,8 @@ Answer me in the language I write in.
 2. Find the setting in the project's agent rules file (the block between
    "multi-agent-protocol: begin" and "end": the role table, owners, signing keys,
    standing authorizations, "Roles and permissions", and the lines "- Commit author:",
-   "- Upgrades:", "- Approval records:", "- Message type:"). Change only what I asked for.
+   "- Upgrades:", "- Approval records:", "- Message type:"), or the section
+   "## Project conventions" after the block. Change only what I asked for.
 3. Show me the change as a diff, and what follows from it for the sessions (for example:
    "every session sets its git identity to its line name", "line docs joins with
    adapters/JOIN.md"). Changes to roles, permissions and message types follow the

@@ -14,6 +14,41 @@ The protocol, the scripts and the Claude Code plugin share one version number, f
 
 Major and minor releases are published first as release candidates (`vX.Y.0-rc.N`).
 
+## 2.0.0-rc.2 - 2026-10-28
+
+The second release candidate of 2.0.0: project conventions at setup, joining in one
+sentence, a faster runner, and a README that leads with how the agents work together.
+Changes since 2.0.0-rc.1:
+
+### Changed
+
+- Joining takes one sentence: the rules block tells an agent to follow `adapters/JOIN.md`
+  next to the protocol, so "Join this project as line <name>." is enough in a tool that
+  reads the agent rules file; the setup's start cards use that form (BOOTSTRAP step 7).
+  The rules block changes, so upgrading projects replace it (PROTOCOL.md 12.3).
+- README (English and Chinese): setup and joining are one sentence to the agent; the
+  introduction leads with how the agents work together.
+
+### Added
+
+- Project conventions (BOOTSTRAP item 15): the setup lists the project's own conventions
+  it found and offers one choice: the owner writes more, the agent asks about them one
+  topic at a time (languages of the repository and of the conversation, naming and
+  layout, commit messages and tests, public documentation), or none. They go into a
+  section "## Project conventions" after the rules block, which upgrades keep; JOIN reads
+  it and CHANGE edits it.
+- Joining agents set up their own tool (JOIN step 5): a project file that makes the tool
+  read the rules (`CLAUDE.md` with `@AGENTS.md`, `.gemini/settings.json`,
+  `.aider.conf.yml`) and, for an agent that runs unattended, its permission settings,
+  each with the owner's approval. Nothing is prepared at setup for agents not yet known.
+
+### Fixed
+
+- `runner.sh` reads only the unread messages of type `command` before a run (one read of
+  all headers), instead of every unread message: a line with a long backlog, such as a
+  new line with every earlier message to `all` still unread, waited a minute or more
+  before each run.
+
 ## 2.0.0-rc.1 - 2026-10-27
 
 The first release candidate of 2.0.0. It collects everything since 1.3.1, including the

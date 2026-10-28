@@ -28,9 +28,10 @@ Short version (the protocol wins if this summary disagrees):
   release (PROTOCOL.md 12.3). Other sessions do not upgrade on their own.
 - At session start: read your role below, recent `decisions/`, your inbox, active claims
   and the other lines' status. Announce interface changes with a `heads-up` before merging.
-- When you join, describe your environment in your status file (tool, model, machine label,
-  sandbox and network, what you can run) and send the `joined` heads-up; no host names, IP
-  addresses or secrets.
+- To join this project, follow `adapters/JOIN.md` next to the protocol above: it finds your
+  line, sets you up and registers you. Describe your environment in your status file
+  (tool, model, machine label, sandbox and network, what you can run) and send the
+  `joined` heads-up; no host names, IP addresses or secrets.
 - Moving this line to another agent or machine: commit and push everything, send the
   `transfer` handover to your own line name, then end the session (PROTOCOL.md 5.7).
 - "Done" means a pushed commit SHA plus the checks you actually ran and their results.

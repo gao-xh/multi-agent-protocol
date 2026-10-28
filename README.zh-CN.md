@@ -4,7 +4,7 @@
 
 MAP 让一组 AI 编程 agent（Claude Code、Codex 等）真正一起替你做项目，像一个团队：lead 规划和分派任务，其他 agent 并行完成各自的部分、互相审查，你只在需要决定时出场。
 
-> **候选版 2.0.0-rc.1** 在 `next` 分支（tag `v2.0.0-rc.1`）；正式版 2.0.0 发布前，`main` 和插件市场仍是 1.3.1。想试用：`git clone --branch v2.0.0-rc.1 https://github.com/gao-xh/multi-agent-protocol`，再把这个文件夹添加为插件市场（`/plugin marketplace add ./multi-agent-protocol`），或者用其中的 `scripts/install.sh` 装进你的项目，并告诉做配置的 agent 读这个 tag 里的文件，而不是 `main` 上的。改了什么见 [CHANGELOG.md](CHANGELOG.md)。
+> **候选版 2.0.0-rc.2** 在 `next` 分支（tag `v2.0.0-rc.2`）；正式版 2.0.0 发布前，`main` 和插件市场仍是 1.3。想试用：`git clone --branch v2.0.0-rc.2 https://github.com/gao-xh/multi-agent-protocol`，再把这个文件夹添加为插件市场（`/plugin marketplace add ./multi-agent-protocol`），或者用其中的 `scripts/install.sh` 装进你的项目，并告诉做配置的 agent 读这个 tag 里的文件，而不是 `main` 上的。改了什么见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 团队怎么协作
 
@@ -45,7 +45,7 @@ MAP 让一组 AI 编程 agent（Claude Code、Codex 等）真正一起替你做�
 
 ### 2. 加入其他 agent
 
-按启动卡片打开每个 agent，贴上卡片上的那一句话（它会让 agent 去读 [adapters/JOIN.md](adapters/JOIN.md)）。agent 会读取项目设置、检查自己的环境、只配置自己，然后向团队报到，通常一个问题都不用问。角色表里还没有的 agent，经你批准后加入。以后要改某项设置，把 [adapters/CHANGE.md](adapters/CHANGE.md) 交给 lead。
+在项目的工作目录里打开每个 agent，对它说一句："加入这个项目"（知道它负责哪条线，就加上"作为 `api` 线"）。lead 写进 `AGENTS.md` 的规则会让它去读 [adapters/JOIN.md](adapters/JOIN.md)，它会自己照着做：读取项目设置、检查自己的环境、只配置自己，然后向团队报到，通常一个问题都不用问。lead 给的启动卡片会写明每个 agent 在哪里打开。角色表里还没有的 agent，经你批准后加入。以后要改某项设置，把 [adapters/CHANGE.md](adapters/CHANGE.md) 交给 lead。
 
 ### 3. Claude Code 插件（可选）
 

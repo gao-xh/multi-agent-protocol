@@ -124,9 +124,17 @@ check_commands() {
     fetch_main_quietly
     mode=$(rules_word 'Owner commands')
     case "$mode" in lenient | off) ;; *) mode=strict ;; esac
+    # Only the unread messages of type "command", found with one read of all headers, so
+    # that a long backlog of other unread messages costs nothing here.
+    commands=$(message_headers | LC_ALL=C awk -F '\t' '$2 == "command" { print "messages/" $1 }')
+    [ -n "$commands" ] || return 0
     for path in $("${MAP_SCRIPT_DIR}/inbox.sh" --no-fetch "$line" 2>/dev/null); do
+        case "
+$commands
+" in *"
+${path}
+"*) ;; *) continue ;; esac
         text=$(show_file "$path") || continue
-        [ "$(printf '%s\n' "$text" | header_value type)" = command ] || continue
         id=$(printf '%s\n' "$text" | header_value id)
         expires=$(printf '%s\n' "$text" | header_value expires)
         recipients=$(printf '%s\n' "$text" | header_value to | tr ',' ' ')

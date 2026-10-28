@@ -16,7 +16,8 @@ Answer me in the language I write in.
 1. Read the project's agent rules file (AGENTS.md, CLAUDE.md or your tool's equivalent):
    the block between "multi-agent-protocol: begin" and "end", its role table, owners,
    standing authorizations and the lines "- Commit author:", "- Upgrades:" and
-   "- Approval records:". Then read PROTOCOL.md where the block says (a copy in the
+   "- Approval records:", and the section "## Project conventions" after the block if there
+   is one: every agent follows it. Then read PROTOCOL.md where the block says (a copy in the
    repository, or the URL), at least sections 1 to 5 and the section of your role, and,
    with the scripts the block names, the recent owner decisions and the active claims
    (scripts/status.sh --decisions, scripts/status.sh --claims). If there is no such
@@ -81,6 +82,14 @@ Answer me in the language I write in.
      I am not, send the list to the lead as a `question` (PROTOCOL.md 3.4) and join
      without the missing parts. Write what you can actually do afterwards into your
      status file (Can run, Wake).
+   - whether your tool reads the project's agent rules file by itself (adapters/README.md,
+     section 1). If it needs a setting (for Claude Code a `CLAUDE.md` with the line
+     `@AGENTS.md`, for Gemini CLI `.gemini/settings.json`, for Aider
+     `.aider.conf.yml`), propose it: the file belongs to the project, so it goes on your branch and reaches the main
+     branch with my approval, and the next agent with the same tool finds it there;
+   - if you will run unattended (started by a runner or a timer): the permission settings
+     your tool needs to do your area's work without prompts and nothing more
+     (adapters/remote.md, section 2.2); propose them and set them only with my approval;
    - if you are a relay, a line started by scripts/runner.sh, or a session on a computer
      I send owner commands from: check this machine as adapters/remote.md says (section
      2 or 3), propose the runner command built for your tool, its permission settings

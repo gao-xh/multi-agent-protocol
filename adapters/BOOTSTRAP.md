@@ -38,6 +38,10 @@ configure only themselves (adapters/JOIN.md). Answer me in the language I write 
      pyproject.toml, CI files and the like), deployment or release scripts, existing
      agent configuration (AGENTS.md, CLAUDE.md, .cursor/, .github/copilot-instructions.md
      and others), a vendored copy of the protocol;
+   - the project's own conventions, wherever they are written (the agent rules files,
+     CONTRIBUTING.md, .editorconfig, formatter and linter settings, the style of recent
+     commits): which language the repository is written in, documentation, naming,
+     formatting, folder layout, commit messages and tests;
    - yourself: tool and version, model, operating system, sandbox and network access,
      whether you can push to the remote;
    - the tools and plugins this setup and this session need, without installing
@@ -117,6 +121,15 @@ configure only themselves (adapters/JOIN.md). Answer me in the language I write 
       choose), from which computers, and with strict one signing key each; how the remote lead waits; and the approvals to ask up front.
       Items you cannot check from here (another machine) are "assumed" until that
       machine's session joins.
+   Project conventions (shown at every level):
+   15. The project's own conventions, which every agent follows beyond the protocol: list
+      the ones you found (with where), then ask how I want to add more, as one choice:
+      (a) I write them: I type or paste them and you write them as given; (b) you ask
+      me, one topic at a time, with a recommendation each: the language of the
+      repository (documentation, code comments, commit messages, pull requests) and,
+      separately, the language you use with me; naming, formatting and folder layout;
+      commit messages and tests; what the public documentation contains; or (c) none.
+      Default: (c), the conventions found stay as they are. Never add one I did not give.
    If my answers or the mode give a reason for the full profile or another level, say so.
    Do not continue until I answer.
 
@@ -124,7 +137,9 @@ configure only themselves (adapters/JOIN.md). Answer me in the language I write 
    built from adapters/AGENTS.md.snippet with my answers (the role table filled in,
    PROTOCOL_PATH, SCRIPTS_PATH and MAIN_BRANCH replaced, the standing authorizations in
    my words, and the lines "- Commit author:", "- Upgrades:" and, if chosen,
-   "- Approval records:" and "- Owner commands:"), and the list of files you will add. Changing the agent rules
+   "- Approval records:" and "- Owner commands:"); the section "## Project conventions"
+   from item 15, written after the block's end marker so that upgrades, which replace
+   only the block, keep it; and the list of files you will add. Changing the agent rules
    file needs my approval: wait for it.
 
 6. After I approve:
@@ -151,10 +166,12 @@ configure only themselves (adapters/JOIN.md). Answer me in the language I write 
 7. Report: what you changed (files, branches, commits), your status file, the doctor
    output, and one start card per other agent in the role table:
    - where to open it (the tool, the machine or the web, the folder or repository);
-   - what to paste: "Join this project as line <name>: follow <path>/adapters/JOIN.md in
-     this repository and the rules in <rules file>.", with <path> where the protocol was
-     copied (tools/multi-agent-protocol by default) and the agent rules file you wrote;
-     without a copy, the raw link of the release in use,
+   - what to say: "Join this project as line <name>." The rules block you wrote tells the
+     agent to follow adapters/JOIN.md. For a tool that does not read the agent rules file
+     by itself (adapters/README.md, section 1), the longer form: "Join this project as
+     line <name>: follow <path>/adapters/JOIN.md and the rules in <rules file>.", with
+     <path> where the protocol was copied (tools/multi-agent-protocol by default), or
+     without a copy the raw link of the release in use,
      https://raw.githubusercontent.com/gao-xh/multi-agent-protocol/v<version>/adapters/JOIN.md;
    - any setting that tool needs first (adapters/README.md: reading AGENTS.md, network
      access for git push, a monitor or hook for waking).

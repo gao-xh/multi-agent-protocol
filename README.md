@@ -18,9 +18,9 @@ MAP makes a group of AI coding agents (Claude Code, Codex and others) actually w
 your project together, as a team: a lead plans and hands out the work, the other agents build their parts in
 parallel and review each other, and you only step in for decisions.
 
-> **Release candidate 2.0.0-rc.1** is on the branch `next` (tag `v2.0.0-rc.1`); `main` and
-> the plugin marketplace stay on 1.3.1 until 2.0.0. To try it, take the files from the tag:
-> `git clone --branch v2.0.0-rc.1 https://github.com/gao-xh/multi-agent-protocol`, then
+> **Release candidate 2.0.0-rc.2** is on the branch `next` (tag `v2.0.0-rc.2`); `main` and
+> the plugin marketplace stay on 1.3 until 2.0.0. To try it, take the files from the tag:
+> `git clone --branch v2.0.0-rc.2 https://github.com/gao-xh/multi-agent-protocol`, then
 > add that folder as the marketplace (`/plugin marketplace add ./multi-agent-protocol`), or
 > run its `scripts/install.sh` on your project, and tell a setup agent to read the files
 > of the tag instead of `main`. What changed: [CHANGELOG.md](CHANGELOG.md).
@@ -95,11 +95,13 @@ owners ([profiles](PROTOCOL.md#121-profiles)).
 
 ### 2. Add the other agents
 
-Open each agent as its start card says and paste the one line on the card (it points
-the agent to [adapters/JOIN.md](adapters/JOIN.md)). The agent reads the project's settings, checks its own environment, configures only itself and
-announces itself to the team; usually it asks nothing. An agent that is not in the role
-table yet is added with your approval. To change a setting later, give the lead
-[adapters/CHANGE.md](adapters/CHANGE.md).
+Open each agent in its own checkout of the project and tell it: "Join this project" (add
+"as line `api`" if you know its line). The rules the lead wrote into `AGENTS.md` send it to
+[adapters/JOIN.md](adapters/JOIN.md), which it follows by itself: it reads the project's
+settings, checks its own environment, configures only itself and announces itself to the
+team; usually it asks nothing. The lead's start cards say where to open each agent. An
+agent that is not in the role table yet is added with your approval. To change a setting
+later, give the lead [adapters/CHANGE.md](adapters/CHANGE.md).
 
 ### 3. Claude Code plugin (optional)
 
