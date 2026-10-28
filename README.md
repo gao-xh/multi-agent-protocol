@@ -19,7 +19,7 @@ for decisions.
 > **2.0 is coming:** a release candidate with setup and join prompts, agents woken by new
 > messages, and remote work is on the branch
 > [`next`](https://github.com/gao-xh/multi-agent-protocol/tree/next) (tag
-> [`v2.0.0-rc.1`](https://github.com/gao-xh/multi-agent-protocol/releases/tag/v2.0.0-rc.1)).
+> [`v2.0.0-rc.3`](https://github.com/gao-xh/multi-agent-protocol/releases/tag/v2.0.0-rc.3)).
 > This page describes the stable 1.3 release.
 
 ## How the team works

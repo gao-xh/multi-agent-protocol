@@ -4,7 +4,7 @@
 
 Multi-Agent Protocol 让一组 AI 编程 agent（Claude Code、Codex 等）真正一起替你做项目，像一个团队：lead 规划和分派任务，其他 agent 并行完成各自的部分、互相审查，你只在需要决定时出场。
 
-> **2.0 即将发布：** 候选版在 [`next`](https://github.com/gao-xh/multi-agent-protocol/tree/next) 分支（tag [`v2.0.0-rc.1`](https://github.com/gao-xh/multi-agent-protocol/releases/tag/v2.0.0-rc.1)），新增了配置和加入提示词、新消息自动唤醒 agent、远程工作。本页介绍的是稳定版 1.3。
+> **2.0 即将发布：** 候选版在 [`next`](https://github.com/gao-xh/multi-agent-protocol/tree/next) 分支（tag [`v2.0.0-rc.3`](https://github.com/gao-xh/multi-agent-protocol/releases/tag/v2.0.0-rc.3)），新增了配置和加入提示词、新消息自动唤醒 agent、远程工作。本页介绍的是稳定版 1.3。
 
 ## 团队怎么协作
 
