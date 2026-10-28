@@ -5,6 +5,15 @@ The protocol, the scripts and the Claude Code plugin share one version number, f
 minor version adds rules, roles or tools, and a patch fixes wording or bugs.
 `PROTOCOL.md` states the protocol version as `MAJOR.MINOR`.
 
+## 1.3.2 - 2026-10-28
+
+### Changed
+
+- README (English and Chinese): opens with how the agents work together as a team, then
+  quality, the owner's control and the rules underneath; "Getting started" comes first,
+  with setup as one sentence to the agent. Points to the 2.0 release candidate on `next`.
+  No change to the protocol, scripts or plugin behaviour.
+
 ## 1.3.1 - 2026-10-21
 
 ### Added
