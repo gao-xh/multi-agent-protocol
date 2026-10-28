@@ -273,6 +273,14 @@ for path in $(git ls-tree --name-only "$ref" status/); do
     esac
 done
 
+# Credentials anywhere on the branch (send.sh, status.sh and decide.sh refuse them, but
+# older scripts, hand-made commits and send.sh --allow-secret do not). Only the place is
+# printed, never the text. A warning: the branch is never rewritten, so an error would
+# stay for good, also for a value that is not a secret.
+for place in $(git grep -n -I -E -e "$MAP_SECRET_ERE" "$ref" -- . 2>/dev/null | cut -d: -f2,3); do
+    warn "${place}: looks like a private key or an access token. ${MAP_SECRET_HELP}"
+done
+
 # Claims: required fields and stale leases.
 now=$(utc_now)
 for path in $(git ls-tree --name-only "$ref" claims/); do

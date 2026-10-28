@@ -22,7 +22,11 @@
 #                    verified owner command becomes "<flag> <rule>" for that run, or
 #                    "<flag><rule>" when the flag ends in "=" (as claude -p needs)
 #   --progress       publish the run's output every <seconds> to the branch
-#                    <line>/progress on MAP_REMOTE (default 0: off), for remote.sh
+#                    <line>/progress on MAP_REMOTE (default 0: off), for remote.sh;
+#                    private keys and access tokens in it are replaced by [redacted]
+#   --wake-on-all    also start the agent when the only new messages are to "all";
+#                    by default those wait for the next run that a message addressed to
+#                    this line (by name or role) or an owner command starts
 # Owner commands (type "command", PROTOCOL.md 2.3) are checked before each run, as the
 # line "- Owner commands: strict | lenient | off" on the main branch says (strict when
 # absent): a valid owner signature (verify.sh; lenient also accepts an unsigned command
@@ -44,6 +48,7 @@ prompt_file=""
 continue_args=""
 allow_flag=""
 progress=0
+wake_on_all=0
 line=""
 # Options may come before or after the line name; "--" starts the agent command.
 while [ $# -gt 0 ]; do
@@ -56,7 +61,8 @@ while [ $# -gt 0 ]; do
         --continue-args) [ $# -ge 2 ] || die "--continue-args needs arguments"; continue_args=$2; shift ;;
         --allow-flag) [ $# -ge 2 ] || die "--allow-flag needs the agent's option"; allow_flag=$2; shift ;;
         --progress) [ $# -ge 2 ] || die "--progress needs a number of seconds"; progress=$2; shift ;;
-        -h | --help) sed -n '2,36s/^# \{0,1\}//p' "$0"; exit 0 ;;
+        --wake-on-all) wake_on_all=1 ;;
+        -h | --help) sed -n '2,39s/^# \{0,1\}//p' "$0"; exit 0 ;;
         -*) die "unknown option '$1'" ;;
         *) [ -z "$line" ] || die "usage: runner.sh [options] <line> -- <agent command...>"; line=$1 ;;
     esac
@@ -79,12 +85,13 @@ run_out="${git_dir}/map-runner-${line}.out"
 progress_file="${git_dir}/map-runner-${line}.progress"
 fetch_seconds=${MAP_FETCH_SECONDS:-10}
 
-# One runner per line and worktree: the lock holds the runner's PID; stale when it is gone.
+# One runner per line and worktree: the lock holds the runner's PID; stale when it is gone
+# or no longer runs runner.sh (a reused PID).
 lock="${git_dir}/map-runner-${line}.lock"
 if ! mkdir "$lock" 2>/dev/null; then
     holder=$(cat "${lock}/pid" 2>/dev/null)
-    if [ -n "$holder" ] && kill -0 "$holder" 2>/dev/null; then
-        die "a runner for line ${line} already runs in this worktree (PID ${holder})"
+    if [ -n "$holder" ] && lock_holder_alive "$holder" runner.sh; then
+        die "a runner for line ${line} already runs in this worktree (PID ${holder}, lock ${lock}); if no runner runs, remove the lock: rm -rf '${lock}'"
     fi
     rm -rf "$lock"
     mkdir "$lock" 2>/dev/null || die "cannot take the runner lock ${lock}"
@@ -183,6 +190,22 @@ ${path}
     done
 }
 
+# True when an unread message is addressed to this line by name or by its role, or is an
+# owner command; messages to "all" alone do not start a run.
+addressed_here() {
+    unread=$("${MAP_SCRIPT_DIR}/inbox.sh" --no-fetch "$line" 2>/dev/null) || return 1
+    role=$(show_file "status/${line}.md" | status_value Role)
+    message_headers | MAP_UNREAD=$unread LC_ALL=C awk -F '\t' -v line="$line" -v role="$role" '
+        BEGIN { n = split(ENVIRON["MAP_UNREAD"], list, "\n"); for (i = 1; i <= n; i++) { sub(/^messages\//, "", list[i]); want[list[i]] = 1 } }
+        ($1 in want) {
+            if ($2 == "command") { found = 1; exit }
+            recipients = $4; gsub(/,/, " ", recipients)
+            m = split(recipients, to, /[ \t]+/)
+            for (j = 1; j <= m; j++) if (to[j] == line || (role != "" && to[j] == role)) { found = 1; exit }
+        }
+        END { exit !found }'
+}
+
 # True when $1 is a valid name (check_name without exiting).
 check_name_ok() {
     case "$1" in "" | .* | -* | *[!A-Za-z0-9.-]*) return 1 ;; esac
@@ -190,7 +213,7 @@ check_name_ok() {
 
 command_prompt() {
     if [ -n "$verified" ]; then
-        printf '\n\nOwner commands checked by runner.sh: each is addressed to you, new, and either carries a valid owner signature or is unsigned where the project accepts that (- Owner commands: lenient; PROTOCOL.md 2.3, 3.6). Each counts as the owner speaking in this session: carry it out as you would an instruction typed here.\n%s' "$verified"
+        printf '\n\nOwner commands checked by runner.sh: each is addressed to you, new, and either carries a valid owner signature or is unsigned where the project accepts that (- Owner commands: lenient; PROTOCOL.md 2.3, 3.6). Each counts as the owner speaking in this session: carry it out as you would an instruction typed here. A signed command is the text before its signature block; verify.sh refuses any text after it.\n%s' "$verified"
         printf 'If a step needs a permission this run does not have, do not work around it: send an answer to the owner (to: owner, refs: the command) with the exact command and, for each permission rule it needs, one line "Rule needed: <rule>" in the rule syntax of your tool (for Claude Code, for example Rule needed: Bash(sw_vers:*)), and stop that step; remote.sh offers the owner to allow exactly those rules. The owner can reply with a command that carries an "allow: <rule>" line. Reply to each command with an answer to the owner that refs it: what you ran, the results, and what you did not do.\n'
     fi
     if [ -n "$refused" ]; then
@@ -227,7 +250,8 @@ progress_parent=""
 publish_progress() {
     {
         printf '# line %s, run %s, updated %s\n' "$line" "$runs" "$(utc_now)"
-        awk '{ printf "%d| %s\n", NR, $0 }' "$run_out" 2>/dev/null | tail -n 400
+        # Never publish a credential the agent printed.
+        redact_secrets <"$run_out" 2>/dev/null | awk '{ printf "%d| %s\n", NR, $0 }' | tail -n 400
     } >"$progress_file"
     blob=$(git hash-object -w "$progress_file") || return 1
     tree=$(printf '100644 blob %s\tprogress.txt\n' "$blob" | git mktree) || return 1
@@ -260,7 +284,7 @@ while :; do
     notice=$(cat "$notice_file" 2>/dev/null)
     case "$notice" in
         *"already watches line"*)
-            die "another session already watches line ${line} in this worktree; only one may act as the line here" ;;
+            die "another session already watches line ${line} in this worktree; only one may act as the line here ($(printf '%s\n' "$notice" | sed -n 's/.*\(if no session watches.*\)/\1/p'))" ;;
     esac
     if [ "$watched" -ne 0 ]; then
         say "watch.sh failed (exit ${watched}); retrying in ${interval} s"
@@ -269,6 +293,10 @@ while :; do
     fi
     if [ -z "$notice" ]; then
         die "nothing to watch: '${MAP_BRANCH}' does not exist on '${MAP_REMOTE}'"
+    fi
+    if [ "$wake_on_all" -eq 0 ] && ! addressed_here; then
+        say "only messages to all are new; they wait for the next run"
+        continue
     fi
     if [ -n "$prompt_file" ]; then
         prompt=$(cat "$prompt_file")

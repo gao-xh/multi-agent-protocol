@@ -5,7 +5,8 @@
 # Git Bash on Windows).
 # Usage: remote.sh [options] <relay-line> [<instruction>]
 #   Without an instruction it reads instructions line by line, as a console:
-#   "/allow <rule>" adds a permission rule to the next instruction; "/quit" ends.
+#   "/allow <rule>" adds a permission rule to the next instruction; "/quit", "quit",
+#   "exit" or Ctrl-D ends; other lines starting with "/" are not sent.
 #   --key <file>      the owner's private SSH signing key (default: MAP_SIGNING_KEY);
 #                     without one, commands go unsigned, which a relay accepts only when
 #                     the main branch says "- Owner commands: lenient"
@@ -43,7 +44,7 @@ while [ $# -gt 0 ]; do
         --no-wait) wait_reply=0 ;;
         --interval) [ $# -ge 2 ] || die "--interval needs seconds"; interval=$2; shift ;;
         --wait) [ $# -ge 2 ] || die "--wait needs seconds"; wait_seconds=$2; shift ;;
-        -h | --help) sed -n '2,25s/^# \{0,1\}//p' "$0"; exit 0 ;;
+        -h | --help) sed -n '2,26s/^# \{0,1\}//p' "$0"; exit 0 ;;
         -*) die "unknown option '$1'" ;;
         *) break ;;
     esac
@@ -193,13 +194,39 @@ if [ $# -eq 2 ]; then
     handle "$2" "$allow_rules"
     exit $?
 fi
+# One line of the console. In a terminal with bash, use its line editing (arrow keys,
+# history kept in the git directory); otherwise a plain read.
+history_file="$(git rev-parse --absolute-git-dir)/map-remote-${relay}.history"
+read_line() {
+    if [ -t 0 ] && [ -t 2 ] && command -v bash >/dev/null 2>&1; then
+        # bash keeps the terminal for its line editor and hands the line back in a file.
+        bash -c '
+            HISTFILE=$2; history -r "$HISTFILE" 2>/dev/null
+            IFS= read -e -r -p "$1" line || exit 1
+            [ -z "$line" ] || { history -s -- "$line"; history -w "$HISTFILE" 2>/dev/null; }
+            printf "%s" "$line" >"$3"' remote-console "${relay}> " "$history_file" "${work}/line" || return 1
+        input=$(cat "${work}/line")
+    else
+        printf '%s> ' "$relay" >&2
+        IFS= read -r input
+    fi
+}
+
 pending=$allow_rules
-while printf '%s> ' "$relay" >&2 && IFS= read -r input; do
-    case "$input" in
+while read_line; do
+    # Console commands tolerate surrounding spaces and extra leading slashes ("//quit").
+    line=$(printf '%s' "$input" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    case "$line" in
         "") ;;
-        /quit) break ;;
-        "/allow "*) pending="${pending}${input#/allow }
+        quit | exit) break ;;
+        /*)
+            word=$(printf '%s' "$line" | sed 's|^/*||')
+            case "$word" in
+                quit | q | exit) break ;;
+                "allow "*) pending="${pending}$(printf '%s' "${word#allow }" | sed 's/^[[:space:]]*//')
 " ;;
-        *) handle "$input" "$pending"; pending=$allow_rules ;;
+                *) note "not sent: '${line}' is not a console command; use /allow <rule> or /quit (Ctrl-D also quits)" ;;
+            esac ;;
+        *) handle "$line" "$pending"; pending=$allow_rules ;;
     esac
 done

@@ -14,6 +14,104 @@ The protocol, the scripts and the Claude Code plugin share one version number, f
 
 Major and minor releases are published first as release candidates (`vX.Y.0-rc.N`).
 
+## 2.0.0-rc.3 - 2026-10-28
+
+The third release candidate of 2.0.0: the Codex plugin, security fixes from an audit
+(signed text, secrets in messages), relays on other machines and on the web, faster and
+clearer checks, and documentation fixes for setup, joining and upgrading. Changes since
+2.0.0-rc.2:
+
+### Added
+
+- Codex plugin: `.codex-plugin/plugin.json` with six role skills under `codex/skills/`
+  (`map-coordinate`, `map-lead`, `map-line`, `map-release`, `map-liaison`, `map-relay`), an
+  optional session-start inbox summary that runs only after the user trusts it, a local
+  marketplace entry `.agents/plugins/marketplace.json`, and its own tests
+  (`ruby codex/test-plugin.rb`, run by the project's private check script). Install and use: codex/README.md,
+  adapters/codex.md section 6. The Claude Code plugin is unchanged.
+- The tests check that the Codex manifest carries the same version as the rest.
+- adapters/remote.md: a Codex runner needs a clone of its own and its `.git` as an extra
+  writable root of the `workspace-write` sandbox.
+
+### Changed
+
+- `remote.sh` console: in a terminal with bash, the line can be edited (arrow keys move
+  the cursor) and earlier commands come back with the up arrow; the history stays in the
+  git directory (`map-remote-<relay>.history`). Without a terminal or bash it reads a
+  plain line as before.
+- `remote.sh` console: "/quit", "quit", "exit", "/q", Ctrl-D and lines with extra slashes or
+  spaces ("//quit") end it; any other line starting with "/" is not sent to the relay.
+- `runner.sh` starts the agent only when an unread message is addressed to the line (by
+  name or role) or is an owner command; messages that are only to `all` wait for the next
+  such run (`--wake-on-all` restores the old behaviour). Broadcasts no longer cost a
+  model run on every relay and runner line.
+- Missing tools: tests/test-scripts.sh skips the sections that need ssh-keygen when it is
+  missing, prints the reason and exits 3; the private check script reports that as "SKIPPED", never as passed, and lists missing
+  tools with install commands.
+  adapters/remote.md (section 3a) has a setup script for sessions on the web.
+- Setting up a relay on another machine: the machine's own rules come first (allowed
+  folders, user-wide settings), and a conflict goes to the owner instead of an exception
+  (JOIN step 5, adapters/remote.md section 2.1); no fixed clone folder; permission
+  settings only in the checkout (`.claude/settings.local.json`), never in user-wide
+  settings; a Windows note (Git Bash, tool paths, sleep). The setup's start card for a
+  relay is one sentence without folders, paths or commands (BOOTSTRAP step 7).
+- From an audit of 2026-10-28 (a private note):
+  - Setup and join read one release, the tag or branch the user gives (or `main`), and
+    never mix files of two releases (BOOTSTRAP step 1, JOIN; B1). The READMEs give a
+    ready-to-paste sentence for setting up with a release candidate.
+  - A Codex line uses a clone of its own, not a git worktree, with its `.git` as an extra
+    writable root and network access for each run (adapters/codex.md sections 3 and 4;
+    B3).
+  - UPGRADING.md: "Trying a release candidate" and "Notes for 2.0", which replace the
+    notes for 1.7 (never published) (B5).
+  - BOOTSTRAP item 13, a private repository for the coordination branch, shows at every
+    level when the repository is public, with a warning (B6).
+- PROTOCOL.md 2.4, outside correspondents: a session of another project (for example a
+  downstream tool that implements the protocol) may read the coordination branch and send
+  questions and compatibility heads-ups to the lead, under a name `ext-<project>-<line>`;
+  nothing else, and its words approve nothing here.
+- A recorded approval of a specific change carries `Approved: <branch> at <full SHA>`; a
+  review's `Reviewed: <branch> at <SHA>` line is for tools too and gives the full SHA
+  (PROTOCOL.md 3.1, 9). An owner command's `id:` must be carried by no other `command`
+  message on the coordination branch (2.3).
+- Clarifications from the audit's rule gaps, with no change to anyone's duties: the
+  rules block says role changes may be delegated to the lead (R4); a delegated lead never
+  adds a role table row (2.2, R4); a new P2 found only in a re-check is a follow-up, in
+  the definition of P2 too (9, R5); the coordination branch may live in a separate
+  repository (5.1, R6); the compact card's approval list matches the protocol (R8); relays
+  send `review` (5.4, R20); forward references explained (R21); the owner-commands rule
+  in numbered steps (2.3, R22).
+
+### Security
+
+- PROTOCOL.md 4: a leaked-secrets rule: never put a password, private key or token in a
+  message, status, decision or commit; if one reaches a branch, stop, tell the owner and
+  rotate the credential with the owner's approval; rewriting history only with the
+  owner's explicit approval and a heads-up to all lines (audit S3).
+- `verify.sh` refuses (exit 1) a record with text after its signature block, other than
+  blank lines and, in a decision, `superseded-by: <YYYY-MM-DD>_<topic>.md` lines as
+  `decide.sh --supersede` writes them, and a block without its END line; so `runner.sh`
+  no longer treats appended text as the owner's words (audit S1).
+- `send.sh`, `status.sh` and `decide.sh` refuse (exit 1) a file that looks like it holds a
+  private key block or an access token (`ghp_`, `github_pat_`, `sk-ant-`, `sk-proj-`,
+  `AKIA`, `AIza`, `xox`, `npm_`), naming the line but not the value and what to do if one
+  was already pushed;
+  `send.sh --allow-secret` sends a value that is not a secret. `doctor.sh` warns about such
+  values anywhere on the coordination branch, and `runner.sh --progress` replaces them
+  with `[redacted]` (audit S3).
+
+### Fixed
+
+- `mark-read.sh` and `status.sh` write `Last-read` and `Updated` in any spelling that the
+  readers accept (`- last-read:`), once, instead of adding a second line that nothing reads
+  (audit B7).
+- `watch.sh` and `runner.sh` treat a lock whose PID now runs another program as stale, and
+  name the lock and the command that clears it (audit B8).
+- `decide.sh --supersede` puts `superseded-by:` on a line of its own when the old decision
+  lacks a final newline.
+- `install.sh` copies every note in `adapters/`, not only JOIN.md, CHANGE.md and README.md
+  (audit B4).
+
 ## 2.0.0-rc.2 - 2026-10-28
 
 The second release candidate of 2.0.0: project conventions at setup, joining in one

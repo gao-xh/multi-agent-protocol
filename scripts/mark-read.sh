@@ -53,9 +53,11 @@ advance_last_read() {
     target="status/${line}.md"
     [ -e "$target" ] || { note "no status/${line}.md; publish one with status.sh first"; return 2; }
     now=$(utc_now)
-    sed -e "s|^- Last-read:.*|- Last-read: ${message}|" \
-        -e "s|^- Updated:.*|- Updated: ${now}|" "$target" >"${target}.new" && mv "${target}.new" "$target"
-    grep -q '^- Last-read:' "$target" || printf -- '- Last-read: %s\n' "$message" >>"$target"
+    # Any spelling of the keys that status_value reads ("- last-read:"), so that the value
+    # written is the value read.
+    set_status_field Last-read "$message" "$target" >"${target}.new" &&
+        set_status_field Updated "$now" "${target}.new" >"${target}.tmp" &&
+        mv "${target}.tmp" "$target" && rm -f "${target}.new"
 }
 
 publish_change advance_last_read "chore: mark ${message} read for ${line}" || exit $?

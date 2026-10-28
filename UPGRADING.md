@@ -65,15 +65,40 @@ Sessions on different versions can disagree, for example about message types.
 4. Use new features (new message types, new headers) only after every session has
    upgraded, unless the release notes say that older versions tolerate them.
 
-## Notes for 1.7
+## Trying a release candidate
 
-- To have commits under each line's name checked, add `- Commit author: line` to the
-  agent rules file and set each session's git identity (PROTOCOL.md 5.5). `doctor.sh`
-  then warns about older messages committed under other names until 100 newer commits
-  of messages have passed (`MAP_AUTHOR_CHECK` sets the number), and about each status
-  file until its line publishes it again under its own name (or the file is removed when
-  the line has ended). Without the line,
-  nothing is checked; `- Commit author: owner` keeps everything under the owner's name.
+Release candidates are on the branch `next` with a tag `vX.Y.Z-rc.N`; `main` and the
+plugin marketplace keep the stable release. To try one in a project you can reset:
+
+1. Clone the candidate: `git clone --branch v2.0.0-rc.N https://github.com/gao-xh/multi-agent-protocol map-rc`.
+   A 1.3 copy has no `upgrade.sh`, so use the clone's.
+2. See what changes: `map-rc/scripts/upgrade.sh --check --to 2.0.0-rc.N <your-project>`.
+3. Install it on a branch of your project: `map-rc/scripts/upgrade.sh --to 2.0.0-rc.N <your-project>`.
+4. For the Claude Code plugin, remove the stable marketplace first
+   (`/plugin marketplace remove gao-xh-agents`), then `/plugin marketplace add ./map-rc`
+   and install the plugin again.
+5. Tell setup and join agents to read the files of the candidate's tag, not `main`.
+
+## Notes for 2.0
+
+Coming from 1.3, after the upgrade steps above:
+
+- Replace the rules block with the new snippet, keeping the role table, owners, keys and
+  standing authorizations. `upgrade.sh --check` lists the new settings (`- Approval
+  records:`, `- Upgrades:`, `- Commit author:`, `- Owner commands:` and who approves
+  changes to roles); the lead asks the owner about each. Unanswered ones keep their
+  defaults.
+- Every session publishes its status again (`status.sh`), so the `Protocol:` field and the
+  Environment section show the new version and how the session is woken.
+- Commit author: to have commits under each line's name checked, add `- Commit author:
+  line` and set each session's git identity (PROTOCOL.md 5.5). `doctor.sh` then warns
+  about older messages committed under other names until 100 newer commits of messages
+  have passed (`MAP_AUTHOR_CHECK` sets the number), and about each status file until its
+  line publishes it again under its own name. `- Commit author: owner` keeps everything
+  under the owner's name, and nothing is checked.
+- New behaviour sessions must follow: the lead asks every open question while the owner is
+  present (PROTOCOL.md 3.4); reviews and approvals cover only the commit they name (3.1,
+  9). The CHANGELOG section of 2.0.0 lists everything else.
 
 ## Compatibility promise
 

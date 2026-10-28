@@ -42,6 +42,11 @@ In the setup proposal (BOOTSTRAP.md, item 14) or the join report, one line each:
 
 ### 2.1 Check
 
+- Where to work: a folder that this machine's own rules allow (the agent's user-level
+  rules file, a list of allowed folders, a shared machine's policy). Do not assume the
+  home folder. Where a step of this guide would break such a rule, ask the owner and
+  follow the machine's rule; make no exception on your own. Use a clone of the project in
+  that folder (for Codex a clone, not a git worktree: section 2.2).
 - Operating system and shell: macOS, Linux, or Windows with Git Bash (the scripts need a
   POSIX sh; PowerShell and cmd cannot run them).
 - `git --version`; whether this checkout can fetch and push the coordination branch
@@ -58,6 +63,10 @@ In the setup proposal (BOOTSTRAP.md, item 14) or the join report, one line each:
 - `ssh-keygen` (the runner calls `verify.sh` for owner commands): `ssh -V` shows OpenSSH
   8.1 or later, which has `ssh-keygen -Y`.
 - How the machine stays awake (section 2.4).
+- On Windows: run every script, and the runner, in Git Bash; paths there look like
+  `/c/Users/...`. Find a tool's full path with `command -v claude` (or `where claude` in
+  cmd), and give the runner that path if `claude` or `codex` is not found in Git Bash.
+  Windows has no `caffeinate`: the owner turns sleep off in the power settings.
 
 ### 2.2 Build the runner command
 
@@ -65,9 +74,9 @@ Start from the row for the tool, run in the relay's own worktree:
 
 | Tool | Runner command | Keeps context (`--continue-args`) | Permission rules from `allow:` (`--allow-flag`) | Permissions for unattended runs |
 | --- | --- | --- | --- | --- |
-| Claude Code | `scripts/runner.sh <line> --continue-args --continue --allow-flag --allowedTools= -- claude -p` | `--continue` (checked with 2.1.308) | `--allowedTools=` with the `=` (checked: a separate value swallows the prompt) | `permissions.allow` and `deny` in the worktree's `.claude/settings.json` |
+| Claude Code | `scripts/runner.sh <line> --continue-args --continue --allow-flag --allowedTools= -- claude -p` | `--continue` (checked with 2.1.308) | `--allowedTools=` with the `=` (checked: a separate value swallows the prompt) | `permissions.allow` and `deny` in the checkout's `.claude/settings.local.json` (not committed; never the user-level `~/.claude/` settings) |
 | OpenCode | `scripts/runner.sh <line> --continue-args --continue -- opencode run` | `--continue` (documented; unverified with the runner) | none: `allow:` lines are logged and ignored | `permission` in `opencode.json` ([opencode.md](opencode.md), section 2) |
-| Codex | `scripts/runner.sh <line> -- codex exec --sandbox workspace-write` | `resume --last` would continue, but its order with `exec` options is unverified: leave it out | none | the sandbox mode and approval policy ([codex.md](codex.md)) |
+| Codex | `scripts/runner.sh <line> -- codex exec --sandbox workspace-write -c sandbox_workspace_write.network_access=true -c 'sandbox_workspace_write.writable_roots=["<clone>/.git"]'`, in a clone of its own (not a git worktree, whose metadata lies outside the sandbox) | `resume --last` would continue, but its order with `exec` options is unverified: leave it out | none | the sandbox mode and approval policy ([codex.md](codex.md)); `workspace-write` keeps `.git` read-only, so the clone's `.git` must be an extra writable root for fetch, commit and the coordination scripts |
 | Aider | not suited to a relay: it does not run commands on its own ([aider.md](aider.md)) | | | |
 
 Then add the options that fit:
@@ -78,6 +87,9 @@ Then add the options that fit:
   `remote.sh` shows while it waits. The output goes to the repository: leave it off when
   the agent may print secrets or private data.
 - `--timeout <seconds>` for the longest run that makes sense (default one hour).
+- `--wake-on-all` only if the agent must also run for messages that are only to `all`.
+  By default those wait for the next run that a message addressed to the line or an
+  owner command starts, so that broadcasts do not cost a model run on every relay.
 - `MAP_STRICT=1` in the environment, and the session card of
   [compact-rules.md](compact-rules.md), for smaller or cheaper models.
 
@@ -85,7 +97,9 @@ Write the permission settings so that the relay's area runs without a prompt and
 else does: allow the protocol scripts, git on the line's branches and the commands of
 the area; deny force-push and the actions of PROTOCOL.md 3.2. An unattended run that hits
 a prompt stops until the timeout. These settings change what the agent may do without
-asking, so the owner approves them.
+asking, so the owner approves them. Write them in this checkout only (for Claude Code
+`.claude/settings.local.json`, which git ignores; for OpenCode the checkout's
+`opencode.json`), never in user-wide settings that every project on the machine shares.
 
 ### 2.3 Try it
 
@@ -105,7 +119,10 @@ The runner is a long-running process: the owner approves how it runs (PROTOCOL.m
 | Windows (Git Bash) | a Git Bash window | the power settings, changed by the owner | a Task Scheduler task that starts Git Bash's `sh` |
 
 A service starts after a reboot, but it needs unattended git and tool access as well;
-check the log after the first restart. Record the choice in the status file
+If a runner or watcher stopped without cleaning up, its lock in the git directory
+(`map-runner-<line>.lock` or `map-watch-<line>.lock`) is treated as stale once its process
+is gone or runs another program; when a script still refuses, it names the lock and the
+command that removes it. check the log after the first restart. Record the choice in the status file
 (`Wake: runner`) and in the log the owner keeps for machine changes, with how to undo it.
 
 ## 3. On the owner's computer: commands
@@ -140,6 +157,17 @@ and check, but never writes or reads the private key.
    somewhere without the scripts, `--print` and paste the signed text into a session that
    sends it unchanged, or commit it as `messages/<UTC time>_owner_command.md` on the
    coordination branch.
+
+## 3a. Sessions on the web
+
+A relay or lead in Claude Code on the web runs in a fresh cloud container each time. If
+it should run the project's full checks there, give its cloud environment a setup
+script that installs the tools first, for example
+`apt-get update && apt-get install -y openssh-client shellcheck dash ruby`;
+`sh tests/test-scripts.sh` names a missing ssh-keygen (it skips those sections and exits
+3). Such a session
+waits for messages with `scripts/watch.sh --once <line>` as a background task instead of a
+runner, and stops answering when its container is reclaimed.
 
 ## 4. The remote lead
 

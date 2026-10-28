@@ -1,0 +1,3 @@
+interface:
+  display_name: "MAP Release"
+  short_description: "Verify commits and perform assigned releases"

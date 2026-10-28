@@ -1,0 +1,19 @@
+{
+  "description": "Show a MAP inbox summary for a previously assigned line. Review and trust this hook before use.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "^(startup|resume|clear|compact|fork)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${PLUGIN_ROOT}/codex/session-start.sh\"",
+            "timeout": 15,
+            "additionalContextLimit": 6000,
+            "statusMessage": "Checking MAP inbox"
+          }
+        ]
+      }
+    ]
+  }
+}

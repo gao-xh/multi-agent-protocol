@@ -16,10 +16,13 @@ Set up this project for multi-agent collaboration with the Multi-Agent Protocol.
 The first setup decides everything about the project once; agents that join later
 configure only themselves (adapters/JOIN.md). Answer me in the language I write in.
 
-1. Read https://raw.githubusercontent.com/gao-xh/multi-agent-protocol/main/PROTOCOL.md
-   in full, and adapters/modes.md from the same place. If you cannot browse, clone
-   https://github.com/gao-xh/multi-agent-protocol into a temporary directory and read
-   them there; if you cannot clone either, download scripts/, templates/ and adapters/
+1. Use one release for everything: the tag or branch I gave you (for example
+   `v2.0.0-rc.3` or `next`), or `main` (the stable release) if I gave none. Never mix
+   files of two releases. Read
+   https://raw.githubusercontent.com/gao-xh/multi-agent-protocol/<release>/PROTOCOL.md
+   in full, and adapters/modes.md from the same place. If you cannot browse, clone it
+   (`git clone --branch <release> https://github.com/gao-xh/multi-agent-protocol`) into a
+   temporary directory and read them there; if you cannot clone either, download scripts/, templates/ and adapters/
    from the raw URLs, or stop and tell me.
 
 2. Check what exists, and change nothing yet. If the project's agent rules file
@@ -112,7 +115,9 @@ configure only themselves (adapters/JOIN.md). Answer me in the language I write 
       always needs me (PROTOCOL.md 5.5).
    12. Message types the project adds (PROTOCOL.md 5.4).
    13. A separate private repository for the coordination branch (adapters/platforms.md),
-      for a public project.
+      for a public project. When step 2 found that the repository is public, show this
+      item at every level, with the warning that otherwise every status file, message,
+      claim and decision is pushed to a public branch.
    Remote work (shown at every level when the mode is 15 or the role table has a relay):
    14. The five items of adapters/remote.md, section 1: each relay or local line with its
       machine, tool and area; its runner command built for that tool and how it stays
@@ -172,11 +177,15 @@ configure only themselves (adapters/JOIN.md). Answer me in the language I write 
      line <name>: follow <path>/adapters/JOIN.md and the rules in <rules file>.", with
      <path> where the protocol was copied (tools/multi-agent-protocol by default), or
      without a copy the raw link of the release in use,
-     https://raw.githubusercontent.com/gao-xh/multi-agent-protocol/v<version>/adapters/JOIN.md;
+     https://raw.githubusercontent.com/gao-xh/multi-agent-protocol/v<X.Y.Z or X.Y.Z-rc.N>/adapters/JOIN.md
+     (the full tag, as the copy's VERSION file names it);
    - any setting that tool needs first (adapters/README.md: reading AGENTS.md, network
      access for git push, a monitor or hook for waking).
-   - for a relay or a line started by a runner: the runner command from item 14 and
-     "check this machine with adapters/remote.md, section 2, before starting it";
+   - for a relay or a line started by a runner: what to say there is "Join this project
+     as relay line <name>: follow adapters/JOIN.md and set this machine up with
+     adapters/remote.md, section 2." Put no folder, tool path or runner command on the
+     card: the agent on that machine finds them, within that machine's own rules, and
+     proposes them to me;
    - if I chose owner commands: one card per computer I send from, with the steps of
      adapters/remote.md, section 3 (with strict: my key, its line in the rules file, the
      test).

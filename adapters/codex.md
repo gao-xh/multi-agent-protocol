@@ -37,13 +37,21 @@ a configuration change on the owner's machine, so the owner decides (PROTOCOL.md
 
 ## 3. Starting a session with a role
 
-Interactive: start Codex in the line's own worktree and say
+Use a clone of the project of its own for each Codex line, not a git worktree: in the
+`workspace-write` sandbox `.git` is read-only, and a worktree keeps its git data in the
+main checkout's `.git`, outside the sandbox, so commits and the coordination scripts fail.
+In the clone, add its `.git` as a writable root for each run:
+`-c 'sandbox_workspace_write.writable_roots=["<clone>/.git"]'`, together with
+`-c sandbox_workspace_write.network_access=true` for fetch and push (section 2).
+
+Interactive: start Codex in the line's own clone and say
 "You are line `<name>` in this project; follow the Multi-Agent Protocol in AGENTS.md."
 
 Non-interactive: `codex exec` runs one task from a script; progress goes to stderr and the
 final message to stdout. Its default sandbox is read-only, so pass
-`--sandbox workspace-write` for work that edits files, and `-C <worktree>` to choose the
-directory. `codex exec resume --last "<follow-up>"` continues the previous session. See
+`--sandbox workspace-write` for work that edits files, and `-C <clone>` to choose the
+directory, with the two `-c` options above. `codex exec resume --last "<follow-up>"`
+continues the previous session. See
 [non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode).
 
 ## 4. Checking the inbox on a timer
@@ -58,10 +66,10 @@ is something new (PROTOCOL.md 5.3). `inbox.sh` exits 0 when there are unread mes
 # check-inbox.sh: run from cron or launchd, for example every 15 minutes.
 set -u
 line=api                                  # this session's line
-worktree="$HOME/code/project-api"         # this line's own worktree
-scripts="$worktree/tools/multi-agent-protocol/scripts"
+clone="$HOME/code/project-api"            # this line's own clone (not a worktree)
+scripts="$clone/tools/multi-agent-protocol/scripts"
 
-cd "$worktree" || exit 2
+cd "$clone" || exit 2
 "$scripts/inbox.sh" "$line" >/dev/null
 case $? in
     0) ;;                                   # unread messages: wake the agent
@@ -69,7 +77,9 @@ case $? in
     *) echo "inbox check failed" >&2; exit 2 ;;  # surface errors (network, sandbox)
 esac
 
-codex exec -C "$worktree" --sandbox workspace-write \
+codex exec -C "$clone" --sandbox workspace-write \
+  -c sandbox_workspace_write.network_access=true \
+  -c "sandbox_workspace_write.writable_roots=[\"$clone/.git\"]" \
   "You are line $line. Follow the Multi-Agent Protocol in AGENTS.md. Run
    $scripts/inbox.sh --show $line, handle each message in order, run
    $scripts/mark-read.sh $line <message> after handling each one, and report."
@@ -99,7 +109,16 @@ message for an existing Codex session (thread). Tested with Codex CLI 0.162.0-al
 Check `codex queue --help` on your version. Whatever you use, write handovers, release
 requests, `released` and `returned` messages to the coordination branch as well.
 
-## 6. Skills and subagents
+## 6. The Codex plugin
+
+This repository is also a Codex plugin: `.codex-plugin/plugin.json` with role skills
+(`map-coordinate`, `map-lead`, `map-line`, `map-release`, `map-liaison`, `map-relay`) and
+an optional session-start inbox summary. Install it from a clone with
+`codex plugin marketplace add <path to the clone>` and
+`codex plugin add multi-agent-protocol@gao-xh-map-codex`; details in
+[codex/README.md](../codex/README.md). The hook runs only after you review and trust it.
+
+## 7. Skills and subagents
 
 - Codex supports skills: folders with a `SKILL.md` (`name`, `description`), found in
   `.agents/skills/` in the repository or `~/.agents/skills/` for the user. See
@@ -118,7 +137,7 @@ requests, `released` and `returned` messages to the coordination branch as well.
   a strictly read-only review, run the reviewer as its own session with
   `--sandbox read-only`.
 
-## 7. Describing a Codex session's environment
+## 8. Describing a Codex session's environment
 
 When a Codex session joins (PROTOCOL.md 5.5), its status file could read, for example:
 

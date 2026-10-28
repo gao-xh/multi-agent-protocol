@@ -4,7 +4,7 @@
 
 MAP 让一组 AI 编程 agent（Claude Code、Codex 等）真正一起替你做项目，像一个团队：lead 规划和分派任务，其他 agent 并行完成各自的部分、互相审查，你只在需要决定时出场。
 
-> **候选版 2.0.0-rc.2** 在 `next` 分支（tag `v2.0.0-rc.2`）；正式版 2.0.0 发布前，`main` 和插件市场仍是 1.3。想试用：`git clone --branch v2.0.0-rc.2 https://github.com/gao-xh/multi-agent-protocol`，再把这个文件夹添加为插件市场（`/plugin marketplace add ./multi-agent-protocol`），或者用其中的 `scripts/install.sh` 装进你的项目，并告诉做配置的 agent 读这个 tag 里的文件，而不是 `main` 上的。改了什么见 [CHANGELOG.md](CHANGELOG.md)。
+> **候选版 2.0.0-rc.3** 在 `next` 分支（tag `v2.0.0-rc.3`）；正式版 2.0.0 发布前，`main` 和插件市场仍是 1.3。想试用：`git clone --branch v2.0.0-rc.3 https://github.com/gao-xh/multi-agent-protocol`，再把这个文件夹添加为插件市场（`/plugin marketplace add ./multi-agent-protocol`），或者用其中的 `scripts/install.sh` 装进你的项目，用它配置项目时，对 agent 说："用 https://github.com/gao-xh/multi-agent-protocol 的 tag v2.0.0-rc.3 配置这个项目"。从 1.3 升级见 [UPGRADING.md](UPGRADING.md)，改了什么见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 团队怎么协作
 
@@ -56,6 +56,10 @@ MAP 让一组 AI 编程 agent（Claude Code、Codex 等）真正一起替你做�
 ```
 
 每个会话用自己的角色启动（`/multi-agent-protocol:lead`、`/multi-agent-protocol:line api`、`/multi-agent-protocol:release`）；`/multi-agent-protocol:coordinate` 负责收件箱、消息和认领，`builder` 和 `reviewer` 两个子 agent 可以接委派的工作。设好线名后，每次会话开始会列出未读消息和认领，有新消息时 monitor 会提醒会话。插件一共有 `lead`、`line`、`release`、`liaison`（替负责人传话）、`relay`（替别的会话在本机执行命令）、`coordinate` 六个技能。
+
+### Codex 插件（可选）
+
+这个仓库同时也是一个 Codex 插件，带角色技能和可选的会话开始时列出收件箱的功能：先 `codex plugin marketplace add <克隆的路径>`，再 `codex plugin add multi-agent-protocol@gao-xh-map-codex`（见 [codex/README.md](codex/README.md)）。
 
 ### 4. 远程工作（可选）
 

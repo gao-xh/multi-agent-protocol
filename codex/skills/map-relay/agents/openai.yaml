@@ -1,0 +1,3 @@
+interface:
+  display_name: "MAP Relay"
+  short_description: "Run bounded machine requests and report results"

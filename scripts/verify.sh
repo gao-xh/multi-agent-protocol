@@ -5,6 +5,10 @@
 # Owner keys are read from lines "- Owner signing key: <name> <public key>" in AGENTS.md,
 # CLAUDE.md and .claude/CLAUDE.md on the main branch (MAP_MAIN on MAP_MAIN_REMOTE), never
 # from the coordination branch. Prints the signing owner's name.
+# The signed text is everything before the signature block; after the block only blank
+# lines and, except in an owner command, "superseded-by: <YYYY-MM-DD>_<topic>.md" lines
+# (decide.sh --supersede) may follow. Anything else is refused, so that no unsigned text
+# passes as the owner's words.
 # Exit status: 0 valid signature, 1 unsigned or invalid, 2 on error.
 set -u
 PROG=verify.sh
@@ -13,7 +17,7 @@ PROG=verify.sh
 
 local_file=""
 case "${1:-}" in
-    -h | --help | "") sed -n '2,9s/^# \{0,1\}//p' "$0"; [ $# -gt 0 ]; exit $? ;;
+    -h | --help | "") sed -n '2,13s/^# \{0,1\}//p' "$0"; [ $# -gt 0 ]; exit $? ;;
     --file) [ $# -eq 2 ] || die "usage: verify.sh --file <local-file>"; local_file=$2 ;;
     *) [ $# -eq 1 ] || die "usage: verify.sh <coordination-path>" ;;
 esac
@@ -43,6 +47,21 @@ if [ ! -s "${work}/signature" ]; then
     note "not signed"
     exit 1
 fi
+# One complete block, and nothing after it but blank lines and, except in an owner
+# command (never superseded), lines exactly as decide.sh --supersede writes them.
+supersedable=1
+[ "$(header_value type <"${work}/content")" != command ] || supersedable=0
+trailing=$(LC_ALL=C awk -v supersedable="$supersedable" '
+    { line = $0; sub(/\r$/, "", line) }
+    !ended { if (line == "-----END SSH SIGNATURE-----") ended = 1; next }
+    line ~ /^[ \t]*$/ { next }
+    supersedable && line ~ /^superseded-by: [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]_[A-Za-z0-9.-]+\.md$/ { next }
+    { bad = 1; exit }
+    END { if (!ended) print "unterminated"; else if (bad) print "trailing" }' "${work}/record")
+case "$trailing" in
+    unterminated) note "the signature block has no '-----END SSH SIGNATURE-----' line"; exit 1 ;;
+    trailing) note "text after the signature block is not signed; only blank lines and, in a decision, 'superseded-by: <YYYY-MM-DD>_<topic>.md' lines may follow it"; exit 1 ;;
+esac
 
 while read -r owner _; do
     if ssh-keygen -Y verify -f "${work}/allowed_signers" -I "$owner" -n map-approval \

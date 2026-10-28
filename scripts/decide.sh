@@ -25,6 +25,7 @@ topic=$1
 check_name topic "$topic"
 [ -f "$2" ] || die "no such file: $2"
 source_file=$(CDPATH='' cd -- "$(dirname -- "$2")" && pwd)/$(basename -- "$2")
+refuse_secrets "$source_file"
 
 require_repo
 published=""
@@ -34,6 +35,9 @@ write_decision() {
     [ ! -e "decisions/${name}" ] || { note "decisions/${name} already exists; choose another topic"; return 1; }
     if [ -n "$supersede" ]; then
         [ -e "decisions/${supersede}" ] || { note "no decision decisions/${supersede}"; return 2; }
+        # On a line of its own, even when the file lacks a final newline (else the END line
+        # of a signature would no longer match, and verify.sh would refuse the record).
+        [ -z "$(tail -c 1 "decisions/${supersede}")" ] || printf '\n' >>"decisions/${supersede}"
         printf 'superseded-by: %s\n' "$name" >>"decisions/${supersede}"
     fi
     mkdir -p decisions

@@ -1,6 +1,7 @@
 #!/bin/sh
 # Publish a message on the coordination branch (PROTOCOL.md 5.4).
-# Usage: send.sh [--strict] <message-file>  publish a filled-in message (header + body)
+# Usage: send.sh [--strict] [--allow-secret] <message-file>
+#                                          publish a filled-in message (header + body)
 #        send.sh --template <type>         print the template for <type> to fill in
 #                                          (also "joined", sent when a session joins, and "transfer",
 #                                          the handover when a line moves to another agent)
@@ -10,6 +11,9 @@
 # "- Field: <...>" lines still hold a placeholder, that still has a line of its
 # template unchanged (a line with <...>), or that lacks a "## " heading of the template.
 # A partly edited line (for example "Reviewed: x at <SHA>") is not caught.
+# A message that looks like it contains a private key or an access token (GitHub,
+# Anthropic, OpenAI, AWS, Google, Slack, npm) is refused with exit status 1; --allow-secret sends it anyway,
+# for a value that is not a secret (an example or a test value).
 set -u
 PROG=send.sh
 # shellcheck source=lib.sh
@@ -25,7 +29,7 @@ is_message_type() {
 }
 
 case "${1:-}" in
-    -h | --help | "") sed -n '2,12s/^# \{0,1\}//p' "$0"; [ $# -gt 0 ]; exit $? ;;
+    -h | --help | "") sed -n '2,16s/^# \{0,1\}//p' "$0"; [ $# -gt 0 ]; exit $? ;;
     --template)
         [ $# -eq 2 ] || die "usage: send.sh --template <type>"
         case "$2" in
@@ -56,13 +60,21 @@ case "${MAP_STRICT:-0}" in
     0 | no | false) ;;
     *) note "warning: MAP_STRICT='${MAP_STRICT}' is not 1; strict mode is off" ;;
 esac
-if [ "${1:-}" = --strict ]; then
-    strict=1
+allow_secret=0
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --strict) strict=1 ;;
+        --allow-secret) allow_secret=1 ;;
+        -*) die "unknown option '$1'" ;;
+        *) break ;;
+    esac
     shift
-fi
-[ $# -eq 1 ] || die "usage: send.sh [--strict] <message-file>"
+done
+[ $# -eq 1 ] || die "usage: send.sh [--strict] [--allow-secret] <message-file>"
 source_file=$1
 [ -f "$source_file" ] || die "no such file: ${source_file}"
+[ "$allow_secret" -eq 1 ] ||
+    refuse_secrets "$source_file" "If it is not a secret (an example or a test value), pass --allow-secret."
 source_file=$(CDPATH='' cd -- "$(dirname -- "$source_file")" && pwd)/$(basename -- "$source_file")
 
 message_type=$(header_value type <"$source_file")

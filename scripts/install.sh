@@ -34,9 +34,9 @@ cp "${source_root}/PROTOCOL.md" "${source_root}/LICENSE" "${target}/" || die "co
 cp "${source_root}/adapters/AGENTS.md.snippet" "${target}/" || die "copy failed"
 cp "${source_root}"/scripts/*.sh "${target}/scripts/" || die "copy failed"
 cp "${source_root}"/templates/*.md "${target}/templates/" || die "copy failed"
-# The prompts for agents that join later or change a setting, and the per-tool notes.
-cp "${source_root}/adapters/JOIN.md" "${source_root}/adapters/CHANGE.md" "${source_root}/adapters/README.md" \
-    "${target}/adapters/" || die "copy failed"
+# All the adapter notes: the prompts for agents that join later or change a setting
+# (JOIN.md, CHANGE.md) link to the others (remote.md, codex.md, modes.md, ...).
+cp "${source_root}"/adapters/*.md "${target}/adapters/" || die "copy failed"
 chmod +x "${target}"/scripts/*.sh && chmod -x "${target}/scripts/lib.sh"
 # Keep LF line endings in the scripts on Windows, whatever core.autocrlf says.
 printf '*.sh text eol=lf\n' >"${target}/.gitattributes" || die "cannot write ${target}/.gitattributes"

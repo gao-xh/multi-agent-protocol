@@ -64,7 +64,7 @@ fi
 
 # One watcher per line and worktree: a second session in the same worktree would act on
 # the same messages. The lock is a directory in this worktree's git directory holding the
-# watcher's PID; it is stale when that process is gone.
+# watcher's PID; it is stale when that process is gone or no longer runs watch.sh.
 lock="$(git rev-parse --git-dir)/map-watch-${line}.lock"
 take_lock() {
     mkdir "$lock" 2>/dev/null || return 1
@@ -80,9 +80,10 @@ for _ in 1 2 3; do
     holder=$(cat "${lock}/pid" 2>/dev/null)
     # A watcher that has just made the directory may not have written its PID yet.
     [ -n "$holder" ] || { sleep 1; holder=$(cat "${lock}/pid" 2>/dev/null); }
-    if [ -n "$holder" ] && kill -0 "$holder" 2>/dev/null; then
-        printf 'Multi-Agent Protocol: another session already watches line %s in this worktree (PID %s); this watcher exits. Only that session acts as line %s here.\n' \
-            "$line" "$holder" "$line"
+    # A live PID that no longer runs watch.sh was reused by another program: stale.
+    if [ -n "$holder" ] && lock_holder_alive "$holder" watch.sh; then
+        printf 'Multi-Agent Protocol: another session already watches line %s in this worktree (PID %s); this watcher exits. Only that session acts as line %s here; if no session watches it, remove the lock: rm -rf '"'"'%s'"'"'\n' \
+            "$line" "$holder" "$line" "$lock"
         exit 0
     fi
     # Stale: move it aside first (atomic), so that two watchers never both remove it.

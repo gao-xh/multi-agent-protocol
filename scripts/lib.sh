@@ -14,7 +14,7 @@ MAP_MAIN=${MAP_MAIN:-main}
 MAP_MAIN_REMOTE=${MAP_MAIN_REMOTE:-$MAP_REMOTE}
 MAP_MAX_ATTEMPTS=${MAP_MAX_ATTEMPTS:-5}
 # The version of these scripts; the release role keeps it equal to .claude-plugin/plugin.json.
-MAP_VERSION=2.0.0-rc.2
+MAP_VERSION=2.0.0-rc.3
 # Where newer versions are published (update_notice).
 MAP_UPSTREAM=${MAP_UPSTREAM:-https://github.com/gao-xh/multi-agent-protocol.git}
 MAP_MESSAGE_TYPES="handover release-request released returned review heads-up question answer command"
@@ -268,6 +268,74 @@ message_headers() {
                     if (name ~ /\.md$/) printf "%s\t%s\t%s\t%s\t%s\n", name, field[name, "type"], field[name, "from"], field[name, "to"], field[name, "corrects"]
                 }
             }'
+}
+
+# Write file $3 to stdout with the "- Key: value" field $1 set to $2. The key matches as
+# status_value reads it (any case, "- " optional, CRLF accepted), on a "- " line or before
+# the first "## " heading, so that free text further down ("Updated: ..." in a question)
+# stays: the first match is replaced, later matches are dropped, and the field is
+# appended when there is none.
+set_status_field() {
+    LC_ALL=C awk -v key="$1" -v value="$2" '
+        BEGIN { name = key; key = tolower(key) }
+        {
+            line = $0; sub(/\r$/, "", line)
+            if (line ~ /^## /) section = 1
+            if (section && line !~ /^[ \t]*-/) { print; next }
+            sub(/^[ \t]*-?[ \t]*/, "", line)
+            colon = index(line, ":")
+            if (colon > 1 && tolower(substr(line, 1, colon - 1)) == key) {
+                if (!done) print "- " name ": " value
+                done = 1
+                next
+            }
+            print
+        }
+        END { if (!done) print "- " name ": " value }' "$3"
+}
+
+# Credentials that must never reach the coordination branch: private key blocks and
+# common token formats (GitHub, Anthropic, OpenAI, AWS, Google, Slack, npm), as an ERE.
+MAP_SECRET_ERE='-----BEGIN [A-Z0-9 ]*PRIVATE KEY( BLOCK)?-----|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|sk-ant-[A-Za-z0-9_-]{20,}|sk-proj-[A-Za-z0-9_-]{20,}|(AKIA|ASIA)[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|xox[abposr]-[A-Za-z0-9-]{10,}|npm_[A-Za-z0-9]{36}'
+
+# The numbers of the lines of file $1 that look like a credential, one per line (never
+# the matched text, so that the warning does not spread it).
+secret_lines() {
+    grep -nE -e "$MAP_SECRET_ERE" "$1" 2>/dev/null | cut -d: -f1
+}
+
+# Stdin to stdout with credentials replaced by "[redacted]"; a private key block becomes
+# one "[redacted]" line, so that its body does not get through either.
+redact_secrets() {
+    LC_ALL=C awk '
+        /-----BEGIN [A-Z0-9 ]*PRIVATE KEY( BLOCK)?-----/ { print "[redacted]"; skip = 1; next }
+        skip { if ($0 ~ /-----END [A-Z0-9 ]*PRIVATE KEY( BLOCK)?-----/) skip = 0; next }
+        { print }' | sed -E "s/${MAP_SECRET_ERE}/[redacted]/g"
+}
+
+# What to do after a credential was pushed: the history is never rewritten without the
+# owner (PROTOCOL.md 4, 5.2), so the credential itself must be made useless.
+MAP_SECRET_HELP='If a real credential was already pushed or sent anywhere: stop, tell the owner, and have it revoked and replaced (rotated) with the owner'"'"'s approval; only the owner may authorize rewriting the branch history.'
+
+# Exit 1 with the lines of file $1 that look like a credential, unless there are none.
+# $2: an extra sentence for the error, such as the option that overrides the check.
+refuse_secrets() {
+    found_lines=$(secret_lines "$1" | tr '\n' ' ' | sed 's/ $//')
+    [ -n "$found_lines" ] || return 0
+    printf '%s: error: not published: %s looks like it contains a private key or an access token (line %s). Remove it and publish again. %s%s\n' \
+        "$PROG" "$(basename -- "$1")" "$found_lines" "$MAP_SECRET_HELP" "${2:+ $2}" >&2
+    exit 1
+}
+
+# True when PID $1 is alive and, where ps can tell, still runs a command that contains $2
+# (a lock left by a dead process whose PID was reused is stale; -ww: never cut at 80
+# columns). When ps cannot tell (no ps, or no "-o args"), any live process counts.
+lock_holder_alive() {
+    kill -0 "$1" 2>/dev/null || return 1
+    holder_args=$(ps -ww -p "$1" -o args= 2>/dev/null) || return 0
+    [ -n "$holder_args" ] || return 0
+    case "$holder_args" in *"$2"*) return 0 ;; esac
+    return 1
 }
 
 # Stop a process and its descendants (git's transport helpers), children first.

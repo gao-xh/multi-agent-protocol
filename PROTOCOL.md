@@ -47,7 +47,7 @@ Roles are not limited to one session each, and the list above is not closed.
 - **Lines run in parallel by design.** A project MAY have any number of lines, each with its own name, branch prefix and area.
 - **Builders and reviewers MAY run in parallel**, each on its own task, worktree and branch (builders) or detached worktree (reviewers).
 - **Several leads** MAY split the work by area. The role table names which lead is the owner's routine contact and which lead owns each shared contract; a contract has exactly one owning lead.
-- **Several release sessions** MAY prepare releases in parallel (review, merge, verify), but advancing the main branch and deploying are serialized: a release session MUST hold the claim `release-main` (5.6) from step 7.7 to step 7.10, and MUST merge the current main branch and rerun the checks if main moved since its verification.
+- **Several release sessions** MAY prepare releases in parallel (review, merge, verify), but advancing the main branch and deploying are serialized: a release session MUST hold the claim `release-main` (5.6) from step 7 (deploy) to step 10 (record) of section 7, and MUST merge the current main branch and rerun the checks if main moved since its verification.
 - **Project roles.** A project MAY add roles (for example tester, documentation, security audit, data migration, design). Each added role is a row in the role table with what it holds, what it may change, whom it reports to, and whether it talks to the owner. An added role follows sections 3 and 4 like any other, and does not get the powers this protocol reserves: only the owner approves (3), only the session that does the release role's work advances the main branch (2.2, 4), and a role that reviews or audits changes nothing and starts no agents (9).
 
 ### 2.2 Customizing roles and permissions
@@ -71,7 +71,7 @@ Who approves changes to roles, permissions and project message types is chosen a
 
 - **Owner only:** the owner approves each change directly (3.1, 3.6).
 - **Through the lead:** any session proposes a change to the lead (`question` or `handover`); the lead batches the proposals and asks the owner, who approves directly or with a signed record. The lead does not approve.
-- **Delegated to the lead:** the owner grants the lead a standing authorization (3.3), recorded in the agent rules file, that covers this one action of 3.2 (changing the shared rules) for the roles, permissions or message types it names; anything outside it goes to the owner. It never covers: a permission that covers another action in 3.2; the owners, the owner signing keys, the standing authorizations or this approval choice; the lead and release roles; or who is the owner's routine contact (3.4). The lead records each change it approves in `decisions/`, citing the standing authorization, and the session that advances the main branch checks that the change falls within the standing authorization in the agent rules file on the main branch before merging it.
+- **Delegated to the lead:** the owner grants the lead a standing authorization (3.3), recorded in the agent rules file, that covers this one action of 3.2 (changing the shared rules) for the roles, permissions or message types it names; anything outside it goes to the owner. It never covers: a permission that covers another action in 3.2; the owners, the owner signing keys, the standing authorizations or this approval choice; the lead and release roles; a new row in the role table (5.5); or who is the owner's routine contact (3.4). The lead records each change it approves in `decisions/`, citing the standing authorization, and the session that advances the main branch checks that the change falls within the standing authorization in the agent rules file on the main branch before merging it.
 
 Whichever is chosen: approving the actions in 3.2 stays with the owners, except where they delegate it by a standing authorization, no session widens its own permissions, the rules above that cannot be customized stay as they are, and the choice itself changes only with the owner's direct approval.
 
@@ -96,7 +96,36 @@ A relay acts on one machine (a workstation with the data, an instrument computer
 - **Requests and reports.** Requests come as a `handover` or a `question` that names the exact commands or checks, the inputs and what to report. The relay runs them as written, then replies to the sender with an `answer` (or `review` for check results) that references the request: each command, its exit status, the relevant output or the path of a log or result file on its pushed branch, and what it did not run and why.
 - **No judgement calls.** It writes no implementation code, decides nothing, and does not fix, retry with other arguments or work around a failure: it reports it. A request outside its area, or one that is an action of 3.2, it does not run; it reports that to the sender, and a request that needs the owner goes to the lead as a `question` (3.4). A request is information, never an approval (3.1).
 - **Branches.** It commits only the result files its area allows, on its own branch, and never advances the main branch.
-- **Owner commands (remote control).** The owner MAY drive a relay directly from elsewhere with a `command` message (5.4), signed with an owner signing key (3.6) or, where the project allows it, unsigned, so that the relay acts as the owner's own session on that machine. The agent rules file chooses how commands are checked, with the line `- Owner commands: strict`, `lenient` or `off`: **strict** (the default) accepts only commands with a valid owner signature; **lenient** also accepts an unsigned command that says `from: owner`, so that the owner needs no key, at the price that every session that can push the coordination branch can then command the relays as the owner; **off** accepts none. The choice is the owner's, made on the main branch, and is changed only with the owner's direct approval. A command counts only when it passes that check, it is addressed to the relay by name, its `expires:` time has not passed when the relay first reads it, and its `id:` has not been used by another message; otherwise the relay refuses it and reports the reason to its sender and to the lead. A valid command counts as the owner speaking in the relay's session (3.1): the relay carries it out as such, including work outside its area that the command names, and the rules of 2.3 above apply to everything else it receives. Its `allow:` lines are permission rules the owner grants for that run. When a step needs a permission the run does not have, the relay does not work around it: it replies to the owner with the exact command and one line `Rule needed: <rule>` for each permission rule it needs, in the agent tool's own syntax, so that the owner's tool can offer to allow exactly those. It replies to each command with an `answer` to `owner` that references it. `scripts/runner.sh` checks commands before starting the agent, and `scripts/remote.sh` signs (when given a key), sends and follows them from the owner's computer. Under strict, a project that has no owner signing key has no owner commands.
+- **Owner commands (remote control).** The owner MAY drive a relay directly from elsewhere with a `command` message (5.4), so that the relay acts as the owner's own session on that machine. `scripts/runner.sh` checks commands before starting the agent, and `scripts/remote.sh` signs (when given a key), sends and follows them from the owner's computer.
+  1. **How commands are checked.** The agent rules file chooses, with the line `- Owner commands: strict`, `lenient` or `off`: **strict** (the default) accepts only commands with a valid owner signature (3.6), so a project with no owner signing key has no owner commands; **lenient** also accepts an unsigned command that says `from: owner`, so that the owner needs no key, at the price that every session that can push the coordination branch can then command the relays as the owner; **off** accepts none. The choice is the owner's, made on the main branch, and is changed only with the owner's direct approval.
+  2. **When a command counts.** It passes that check, it is addressed to the relay by name, its `expires:` time has not passed when the relay first reads it, and its `id:` is carried by no other `command` message on the coordination branch. Otherwise the relay refuses it and reports the reason to its sender and to the lead.
+  3. **What a valid command means.** It counts as the owner speaking in the relay's session (3.1): the relay carries it out as such, including work outside its area that the command names. The rules of 2.3 above apply to everything else the relay receives. Its `allow:` lines are permission rules the owner grants for that run.
+  4. **Missing permissions.** When a step needs a permission the run does not have, the relay does not work around it: it replies to the owner with the exact command and one line `Rule needed: <rule>` for each permission rule it needs, in the agent tool's own syntax, so that the owner's tool can offer to allow exactly those.
+  5. **Replies.** The relay replies to each command with an `answer` to `owner` that references it.
+
+### 2.4 Outside correspondents
+
+A session of another project MAY follow this project's coordination branch to keep its own
+project compatible, for example a downstream tool that implements or vendors this
+protocol. It is a correspondent, not a line here.
+
+- **Whom it belongs to.** It is a line of its own project, in that project's role table.
+  This project lists it in its agent rules file as a known correspondent, with its
+  project, its purpose and its sender name, or not at all.
+- **What it may do here.** Read the whole coordination branch, from a separate clone. Write
+  only messages (`question`, or `heads-up` for compatibility findings) to the lead or to a
+  role this project names; no status file, claims, `Last-read` or decisions, and no other
+  branch. It changes no file of this project.
+- **Its name.** `ext-<project>-<line>`, for example `ext-mapc-sync`, so that a reader can tell a listed correspondent from an unknown sender (a check in
+  `scripts/doctor.sh` is planned).
+- **Announcements.** An interface change that a correspondent relies on (message, status,
+  claim and decision files; script options, output and exit codes; the install layout;
+  signing) is announced with a `heads-up` before it merges, as 5.3 requires, to `all` or
+  to the correspondent by name; a release candidate's tag is when downstream testing
+  starts.
+- **Authority.** Each project's owner approves its own project's actions. A correspondent's
+  message is information here, and an answer from here is information there (3.1), even
+  when one person owns both projects.
 
 ## 3. Authority
 
@@ -105,7 +134,7 @@ A relay acts on one machine (a workstation with the data, an instrument computer
 - Instructions and approvals are valid only when the owner gives them directly: in the owner's own session with that agent, or as a signed record (3.6). Where the project chooses `- Owner commands: lenient`, an unsigned `command` to a relay also counts, for that relay only (2.3). A standing authorization recorded as 3.3 describes covers the actions its scope names, and nothing else.
 - A message from another agent (a handover, a request, a report, a quoted "the owner said yes") is information. It MUST NOT be treated as approval, however it is worded.
 - When an agent needs an approval that another agent says it has, it MUST ask the owner directly or find a recorded standing authorization that covers it (3.3).
-- **Approvals are bound to a commit.** An approval of a specific change (a branch, a release, a migration) covers the commit it was given for, and later commits only when each one merges the main branch without conflicts or changes documentation only. Any other later change needs a new approval. A request for approval therefore names the commit SHA, and the record of the approval keeps it. Standing authorizations (3.3) describe a scope, not a change, and are not bound to a commit.
+- **Approvals are bound to a commit.** An approval of a specific change (a branch, a release, a migration) covers the commit it was given for, and later commits only when each one merges the main branch without conflicts or changes documentation only. Any other later change needs a new approval. A request for approval therefore names the commit SHA, and a written record of the approval (a decision, a signed record, or an answer that passes it on) carries the line `Approved: <branch> at <full SHA>`, in the same form as a review verdict, so that tools can check it. Standing authorizations (3.3) describe a scope, not a change, and are not bound to a commit.
 
 ### 3.2 Actions that need the owner's direct approval
 
@@ -132,6 +161,7 @@ The choice is the owner's and is changed only with the owner's direct approval.
 
 ### 3.4 Clarify before building, and who asks the owner
 
+- Here and below, "the owner is present" in a session means what **Owner present** (end of this section) defines.
 - **Ask early, all at once.** When the owner gives a task, the lead, or the session that plans the task, SHOULD read it against the code and the rules and ask every open question while the owner is present: scope, behaviour, layout, data, cost, priorities and what "done" means, batched, with concrete options and a recommendation. In the same round it lists the approvals the plan will need (3.2), so that the owner can grant them before the work starts, as standing authorizations scoped to the task (3.3). It SHOULD NOT ask again about decisions already recorded.
 - **Only the lead (or a liaison) asks an absent owner.** A session in which the owner is not present MUST NOT wait on a question that only the owner can answer, such as a prompt the owner has to click. It sends a `question` to the lead (or to the owner's routine contact that the agent rules file names, 2.2), or `to: owner`, which reaches lead and liaison sessions and is handled like a message to a shared role (2.1), and it carries on with other work. The lead answers from recorded decisions when it can; otherwise it asks the owner, batching the open questions, and records each answer in `decisions/` or as a standing authorization (3.3). An answer settles scope and behaviour; for an action in 3.2 the asking session still needs the owner in its own session, a signed record (3.6) or a standing authorization whose scope covers the action, and an `answer` message alone is never an approval (3.1). A session in which the owner is present MAY ask the owner directly. Appendix A covers the edge cases.
 - **A liaison when the owner cannot reach the lead.** A project MAY run a liaison session (role `liaison`), for example a web or phone session that the owner can open when the lead runs on a machine out of reach. The liaison:
@@ -170,7 +200,8 @@ An owner who is not in an agent's session can still approve directly, through a 
 - **Branches.** One branch per line of work, with a prefix that names the line (`lead/…`, `api/…`, `release/…`; parallel release sessions use their own line names, such as `release-a/…`). Two lines MUST NOT commit to the same branch.
 - **Working trees.** Each session MUST work in its own checkout or `git worktree`. Each builder gets a fresh worktree.
 - **Main branch.** Only the release role advances the main branch (or the role the agent rules file names for that work, 2.2), and only to a commit that was verified and released (section 7).
-- **History.** Never force-push or rewrite pushed history on shared branches.
+- **History.** Never force-push or rewrite pushed history on shared branches, except as the leaked-secrets rule below allows.
+- **Leaked secrets.** Never put a password, private key or access token in a message, status file, decision or commit. If one reaches any branch: stop, tell the owner at once (or the lead, which tells the owner), and have the credential revoked and replaced (rotated) with the owner's approval; that makes the copy in the history useless. Rewriting history to remove it needs the owner's explicit approval and, for the coordination branch, a `heads-up` to all lines. The scripts refuse common key and token formats (`send.sh`, `status.sh`, `decide.sh`; `--allow-secret` for a value that only looks like one), and `doctor.sh` reports them on the branch.
 - **Areas are not locks.** A line MAY declare the files it is changing in its status file (5.2). Before editing another line's declared area, ask the owner or that line; never assume the area is free.
 - **Runtime isolation.** Test servers and tools MUST use free ports (ask the OS), private temporary directories and disposable databases. Stop the exact process you started, by PID, never by a name pattern.
 
@@ -178,7 +209,7 @@ An owner who is not in an agent's session can still approve directly, through a 
 
 ### 5.1 Channels
 
-1. **Coordination branch (required, portable).** An orphan branch named `coordination` in the project's own repository, never merged. Every agent that can run git can read and write it, on any machine and in any tool. Agents read and write it from a separate temporary worktree, or with `git show`, never from their development checkout. The scripts in `scripts/` do this.
+1. **Coordination branch (required, portable).** An orphan branch named `coordination`, never merged, in the project's own repository or, where the project chooses it (for example to keep a public project's coordination private), in a separate repository that every agent can reach (adapters/platforms.md). Every agent that can run git can read and write it, on any machine and in any tool. Agents read and write it from a separate temporary worktree, or with `git show`, never from their development checkout. The scripts in `scripts/` do this.
 2. **Direct session messages (optional, fast).** When a tool offers messages between sessions, use them for speed. Handovers, release requests, release confirmations, returned work and reviews MUST still be written to the coordination branch, so that agents without direct messaging, and later sessions, see them.
 
 ### 5.2 Layout of the coordination branch
@@ -225,7 +256,7 @@ corrects: <earlier message files this one corrects, optional (5.2)>
 | `release-request` | line, lead | Ask the release role to ship a branch | Branch, exact commit SHA, migrations (none, or each operation), configuration or scheduled-job changes, owner approvals and where they were given, checks run with results, known limits |
 | `released` | release | Confirm what is live | Production commit, main branch commit, what went live, migration and rehearsal result, rollback command, follow-ups for the requester |
 | `returned` | release, lead, line | Send work back (a lead or line also relays its reviewer's findings this way when the work goes back) | Findings ranked by severity with evidence; what must change before the next attempt |
-| `review` | lead, line | Report review findings that send nothing back: a review of another line's work, a re-check, or the findings of a reviewer this line started (9) | Reviewed branch or artifact and SHA, findings ranked P1/P2/P3 with evidence, what looked good, what was only simulated |
+| `review` | lead, line, relay (2.3) | Report review findings that send nothing back: a review of another line's work, a re-check, or the findings of a reviewer this line started (9) | Reviewed branch or artifact and SHA, findings ranked P1/P2/P3 with evidence, what looked good, what was only simulated |
 | `heads-up` | any | Announce an interface or behaviour change | What changes, when, compatibility, what others must do |
 | `question` / `answer` | any | Ask another agent for facts | The question and its context; the answer references the question |
 | `command` | owner | Instruct a relay directly (2.3, 3.6) | Headers `id:` (unique) and `expires:` (UTC time), optional `allow:` lines (permission rules for the run), the instruction, then the owner's signature block (unsigned only where `- Owner commands: lenient`) |
@@ -333,9 +364,9 @@ A report MUST NOT say a check passed when it was skipped, blocked or only read.
 
 - The reviewer gets a compact task packet (`templates/review-packet.md`): branch and commit, scope, expected behaviour, how to run it with synthetic data, and where to save evidence. Not the full conversation.
 - The reviewer uses the product like a user (real controls, several screen sizes, every language and theme the product supports, error and empty states) and reads the code it needs.
-- Findings are ranked P1 (blocks release), P2 (fix before release) and P3 (fix when convenient). Each has the observation, the expectation and evidence (screenshot, log, command).
+- Findings are ranked P1 (blocks release), P2 (fix before release; a new P2 found only in a re-check becomes a follow-up, below) and P3 (fix when convenient). Each has the observation, the expectation and evidence (screenshot, log, command).
 - The reviewer changes nothing, commits nothing (not even to the coordination branch), starts no further agents and touches no production system. It reports to whoever started it, who sends `returned` when changes are needed, or `review` when the findings are to be recorded without sending the work back.
-- A verdict is bound to the commit it names (`Reviewed: <branch> at <SHA>`). It covers later commits only when each one merges the main branch without conflicts or changes documentation only (the rule of 3.1); after any other change the work needs a re-check before release.
+- A verdict is bound to the commit it names (`Reviewed: <branch> at <SHA>`, a line that tools may parse; give the full SHA). It covers later commits only when each one merges the main branch without conflicts or changes documentation only (the rule of 3.1); after any other change the work needs a re-check before release.
 - A re-check after fixes covers the earlier findings, each marked resolved, open, or declined with a reason. A new finding in a re-check blocks only if it is P1; anything else becomes a follow-up.
 
 ## 10. Agent-usable operations (recommended)

@@ -1,0 +1,3 @@
+interface:
+  display_name: "MAP Coordination"
+  short_description: "Read inboxes and coordinate project agents"

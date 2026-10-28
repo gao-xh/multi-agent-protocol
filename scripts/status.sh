@@ -61,6 +61,7 @@ fi
 [ -f "$2" ] || die "no such file: $2"
 source_file=$(CDPATH='' cd -- "$(dirname -- "$2")" && pwd)/$(basename -- "$2")
 input_name=$2
+refuse_secrets "$source_file"
 
 write_status() {
     target="status/${line}.md"
@@ -75,11 +76,13 @@ write_status() {
     fi
     now=$(utc_now)
     mkdir -p status
+    # Updated and Last-read in any spelling that status_value reads, once.
+    set_status_field Updated "$now" "$source_file" >"${target}.new" || return 2
+    set_status_field Last-read "$new_last_read" "${target}.new" >"${target}.tmp" || return 2
+    rm -f "${target}.new"
     # The Protocol field states the version of the scripts that publish the status.
     # Any spelling status_value would read ("-  protocol :"), once.
-    sed -e "s|^- Updated:.*|- Updated: ${now}|" \
-        -e "s|^- Last-read:.*|- Last-read: ${new_last_read}|" \
-        -e "s|^# Status: <line>|# Status: ${line}|" "$source_file" |
+    sed -e "s|^# Status: <line>|# Status: ${line}|" "${target}.tmp" |
         LC_ALL=C awk -v version="$MAP_VERSION" '
             { line = $0; sub(/\r$/, "", line) }
             # Field lines only ("- Protocol: ..."); free text that starts with "Protocol:" stays.
@@ -89,8 +92,7 @@ write_status() {
                 next
             }
             { print }' >"$target"
-    grep -q '^- Updated:' "$target" || printf -- '- Updated: %s\n' "$now" >>"$target"
-    grep -q '^- Last-read:' "$target" || printf -- '- Last-read: %s\n' "$new_last_read" >>"$target"
+    rm -f "${target}.tmp"
     grep -q '^- Protocol:' "$target" || printf -- '- Protocol: %s\n' "$MAP_VERSION" >>"$target"
 }
 

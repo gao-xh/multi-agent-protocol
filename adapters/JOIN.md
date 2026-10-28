@@ -1,7 +1,11 @@
 # Join prompt: an agent joins a project that is set up
 
-Paste the prompt below into the agent that should join (or give it this file's raw link:
-https://raw.githubusercontent.com/gao-xh/multi-agent-protocol/main/adapters/JOIN.md). The
+Paste the prompt below into the agent that should join, or give it this file's raw link
+in the release the project uses, with its full tag (the `VERSION` file of the project's
+copy, for example `tools/multi-agent-protocol/VERSION`, names it, such as 2.0.0-rc.3):
+`https://raw.githubusercontent.com/gao-xh/multi-agent-protocol/v<X.Y.Z or X.Y.Z-rc.N>/adapters/JOIN.md`.
+In a project whose rules block points to adapters/JOIN.md (2.0 and later), "Join this
+project as line <name>." is enough. The
 project was set up with [BOOTSTRAP.md](BOOTSTRAP.md); everything about the project is in
 its agent rules file, so the joining agent configures only itself and usually asks
 nothing. Add the line name when you know it: "Join as line scripts."
@@ -90,6 +94,10 @@ Answer me in the language I write in.
    - if you will run unattended (started by a runner or a timer): the permission settings
      your tool needs to do your area's work without prompts and nothing more
      (adapters/remote.md, section 2.2); propose them and set them only with my approval;
+   - this machine's own rules (your user-level rules file, allowed folders, settings you
+     must not change): they come first. Where a step here would break them, for example
+     a folder outside the allowed ones or a user-wide settings file, ask me and follow the
+     machine's rules; do not make an exception on your own;
    - if you are a relay, a line started by scripts/runner.sh, or a session on a computer
      I send owner commands from: check this machine as adapters/remote.md says (section
      2 or 3), propose the runner command built for your tool, its permission settings

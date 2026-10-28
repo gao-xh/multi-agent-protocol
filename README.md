@@ -18,12 +18,14 @@ MAP makes a group of AI coding agents (Claude Code, Codex and others) actually w
 your project together, as a team: a lead plans and hands out the work, the other agents build their parts in
 parallel and review each other, and you only step in for decisions.
 
-> **Release candidate 2.0.0-rc.2** is on the branch `next` (tag `v2.0.0-rc.2`); `main` and
+> **Release candidate 2.0.0-rc.3** is on the branch `next` (tag `v2.0.0-rc.3`); `main` and
 > the plugin marketplace stay on 1.3 until 2.0.0. To try it, take the files from the tag:
-> `git clone --branch v2.0.0-rc.2 https://github.com/gao-xh/multi-agent-protocol`, then
+> `git clone --branch v2.0.0-rc.3 https://github.com/gao-xh/multi-agent-protocol`, then
 > add that folder as the marketplace (`/plugin marketplace add ./multi-agent-protocol`), or
-> run its `scripts/install.sh` on your project, and tell a setup agent to read the files
-> of the tag instead of `main`. What changed: [CHANGELOG.md](CHANGELOG.md).
+> run its `scripts/install.sh` on your project. To set up a project with it, tell the agent:
+> "Set up this project with https://github.com/gao-xh/multi-agent-protocol at tag
+> v2.0.0-rc.3". Upgrading from 1.3: [UPGRADING.md](UPGRADING.md). What changed:
+> [CHANGELOG.md](CHANGELOG.md).
 
 ## How the team works
 
@@ -116,6 +118,12 @@ api`, `/multi-agent-protocol:release`); `/multi-agent-protocol:coordinate` handl
 inbox, messages and claims, and `builder` and `reviewer` agents take delegated work. With a
 line name set, each session starts with its unread messages and claims, and a monitor
 notifies it when a new message arrives.
+
+### Codex plugin (optional)
+
+The same repository is a Codex plugin with the role skills and an optional session-start
+inbox summary: `codex plugin marketplace add <path to a clone>`, then
+`codex plugin add multi-agent-protocol@gao-xh-map-codex` ([codex/README.md](codex/README.md)).
 
 ### 4. Remote work (optional)
 
@@ -258,6 +266,7 @@ scripts/inbox.sh --show api                  # unread messages for line "api"
 scripts/watch.sh --once api                  # print what is new (or wait for it), then exit
 scripts/send.sh --template handover > m.md   # fill it in, then:
 scripts/send.sh m.md
+scripts/send.sh --allow-secret m.md          # only if a refused value is not a secret
 scripts/mark-read.sh api <message-file>      # after handling it
 scripts/claim.sh --hours 4 api fix-login     # exit 1: someone else has it
 scripts/status.sh --all
