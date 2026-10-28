@@ -2,21 +2,81 @@
 
 [English](README.md) · [Changelog](CHANGELOG.md)
 
+MAP 让一组 AI 编程 agent（Claude Code、Codex 等）真正一起替你做项目，像一个团队：lead 规划和分派任务，其他 agent 并行完成各自的部分、互相审查，你只在需要决定时出场。
+
 > **候选版 2.0.0-rc.1** 在 `next` 分支（tag `v2.0.0-rc.1`）；正式版 2.0.0 发布前，`main` 和插件市场仍是 1.3.1。想试用：`git clone --branch v2.0.0-rc.1 https://github.com/gao-xh/multi-agent-protocol`，再把这个文件夹添加为插件市场（`/plugin marketplace add ./multi-agent-protocol`），或者用其中的 `scripts/install.sh` 装进你的项目，并告诉做配置的 agent 读这个 tag 里的文件，而不是 `main` 上的。改了什么见 [CHANGELOG.md](CHANGELOG.md)。
 
-这是一套给多个 AI 编程 agent（Claude Code、Codex 等）用的治理和发布协议，适用于它们为同一位人类负责人（owner）并行开发同一个项目的场景。
+## 团队怎么协作
 
-编排工具（orchestrator）负责启动 agent、分配 worktree、显示进度。谁有权批准、agent 之间怎么交接、改动怎样经过严格验证才能上线，这些通常没有规定，本协议补上这一块。它可以和任何编排工具一起用，也可以只用几个普通的终端会话。
+- **分工。** lead 把任务拆成几块，分给不同的开发线：每条线是一个 agent，有自己的分支和负责的区域，写在角色表里。各条线并行开发，任何角色都可以同时开多个会话。
+- **派活和交接。** 工作以书面消息的形式在你自己仓库的协调分支上流转：交接单写明目标、已确认的事实和要跑的检查；认领保证两个 agent 不会做同一件事；状态文件写明谁在做什么。一整条线也可以转给另一个 agent 或另一台机器接着做。
+- **不用盯着。** 新消息不用你转达：runner 会为它们启动一个无界面的 agent，Claude Code 的 monitor 会提醒已打开的会话。你不在时，问题交给 lead，等你回来一次问完。
+- **工具和机器不限。** Claude Code、Codex、OpenCode、Copilot 等可以在同一个团队里协作，只靠 git；网页上的 lead 也可以把活派给你工作站上的 agent（见下面的"远程工作"）。
 
-## 核心规则
+## 质量可以核对
 
-1. **只有负责人能批准。** 别的 agent 转述的"负责人同意了"一律不算。长期授权可以给，但必须写明日期、范围、例外和负责人的原话，并且按最窄的意思理解。负责人不在 agent 的会话里时，可以用自己的 SSH 密钥签名的记录来批准（PROTOCOL.md 3.6，`scripts/verify.sh` 核对签名）。
-2. **隔离。** 一个工作目录只有一个写入者；每条开发线用自己的分支；测试用空闲端口和一次性数据库。
-3. **专门的发布角色**，严格验证：审查、检查和其他分支的重叠、本地检查、在要发布的那个 commit 上跑 CI、向负责人确认批准、用一条脚本命令部署、看真实的退出码。这些都通过后，才推进主分支。
-4. **构建 → 独立审查 → 修复 → 发布**，最多五轮。
-5. **接口改动在合并前先公告。**
+- **独立审查。** 改动由没参与开发的 agent 审查，给出分级的问题和证据；审查结论只对它写明的那个 commit 有效。
+- **专门的发布角色**才能推进主分支，而且要在要发布的那个 commit 上检查通过、批准都确认过之后。
+- **"完成"** 的意思是：一个已推送的 commit SHA，加上实际跑过的检查和结果。
 
-`PROTOCOL.md` 的最后有一张真实故障的表，每条规则都对应其中至少一种故障。
+## 你始终说了算
+
+- **只有你能批准。** 别的 agent 转述的"负责人同意了"一律不算。
+- **长期授权**可以给，按你的原话记录范围和例外；不在场时，可以用自己的 SSH 密钥签名的记录来批准。
+- **配置只问一次**：所有设置列成一页编号方案，每项都有建议。
+
+## 背后的规则
+
+为了让并行开发不互相打架，团队协作建立在几条朴素的规则上：一个工作目录只有一个写入者；每条线用自己的分支；先认领再动手；接口改动在合并前先公告。`PROTOCOL.md` 的最后有一张真实故障的表，每条规则都对应其中至少一种故障。MAP 是一套规则加几个小工具，可以和任何编排工具一起用，也可以只用几个普通的终端会话。
+
+## 开始使用
+
+### 1. 配置项目
+
+在你的项目里，对要当 lead 的 agent（Claude Code、Codex 或其他）说一句："用 https://github.com/gao-xh/multi-agent-protocol 配置这个项目"。它会自己按 [adapters/BOOTSTRAP.md](adapters/BOOTSTRAP.md) 做：
+
+1. 查看仓库、项目的检查命令和它自己的环境，这一步不改任何东西；
+2. 问你三件事：想看多详细的配置、这是哪类项目（[任务模式](adapters/modes.md)）、哪些 agent 会参与；
+3. 把所有设置列成一页编号方案，每项注明是查到的、推荐的还是假定的：你回"同意"，或者按编号改；
+4. 写入前先给你看规则段，然后写进 `AGENTS.md`，建好协调分支，自己以 lead 身份加入；
+5. 给每个其他 agent 一张启动卡片：在哪里打开、贴什么。
+
+可以从小规模开始：一个负责人、两三个会话，只需要几条核心规则；会话、机器、工具或负责人变多时，再加上协调分支和发布角色（见 [PROTOCOL.md 12.1](PROTOCOL.md#121-profiles)）。
+
+### 2. 加入其他 agent
+
+按启动卡片打开每个 agent，贴上卡片上的那一句话（它会让 agent 去读 [adapters/JOIN.md](adapters/JOIN.md)）。agent 会读取项目设置、检查自己的环境、只配置自己，然后向团队报到，通常一个问题都不用问。角色表里还没有的 agent，经你批准后加入。以后要改某项设置，把 [adapters/CHANGE.md](adapters/CHANGE.md) 交给 lead。
+
+### 3. Claude Code 插件（可选）
+
+```text
+/plugin marketplace add gao-xh/multi-agent-protocol
+/plugin install multi-agent-protocol@gao-xh-agents
+/multi-agent-protocol:coordinate set-line api      # 每个工作目录设一次
+```
+
+每个会话用自己的角色启动（`/multi-agent-protocol:lead`、`/multi-agent-protocol:line api`、`/multi-agent-protocol:release`）；`/multi-agent-protocol:coordinate` 负责收件箱、消息和认领，`builder` 和 `reviewer` 两个子 agent 可以接委派的工作。设好线名后，每次会话开始会列出未读消息和认领，有新消息时 monitor 会提醒会话。插件一共有 `lead`、`line`、`release`、`liaison`（替负责人传话）、`relay`（替别的会话在本机执行命令）、`coordinate` 六个技能。
+
+### 4. 远程工作（可选）
+
+你或 lead 不在放数据、跑环境的那台电脑旁边时，那台电脑上的 agent 仍然可以通过协调分支接活（任务模式 15）。`scripts/runner.sh` 在有新消息时启动一个无界面的 agent（Claude Code、Codex、OpenCode）；`relay` 在本机执行别的会话要求的命令；你还可以在另一台电脑上用 `scripts/remote.sh` 直接遥控 relay，命令用 SSH 密钥签名，或在项目允许时不签名。relay 缺权限时，`remote.sh` 会列出它要的规则，你按 `y` 才放行这一次。配置指南见 [adapters/remote.md](adapters/remote.md)。
+
+### 5. 手动安装
+
+```sh
+git clone https://github.com/gao-xh/multi-agent-protocol
+multi-agent-protocol/scripts/install.sh path/to/your-project   # 以后重新运行即可更新
+```
+
+它把协议、脚本和模板复制到项目的 `tools/multi-agent-protocol/`，不改别的。再把规则片段贴进 `AGENTS.md`（Claude Code 用的 `CLAUDE.md` 指向它），填好角色表，运行 `tools/multi-agent-protocol/scripts/init-coordination.sh`。
+
+### 参考
+
+- 各类项目和各自需要的设置：[adapters/modes.md](adapters/modes.md)。
+- 各种 agent 工具（怎么读规则、能不能推送、怎么叫醒）：[adapters/README.md](adapters/README.md)，以及 [Codex](adapters/codex.md)、[OpenCode](adapters/opencode.md)、[Aider](adapters/aider.md)、[GitHub Copilot](adapters/copilot.md)、[Gemini CLI](adapters/gemini.md)、[Cursor](adapters/cursor.md) 的说明。
+- Windows、macOS、Linux 和各家 git 托管：[adapters/platforms.md](adapters/platforms.md)。
+- 较小或较便宜的模型：[adapters/compact-rules.md](adapters/compact-rules.md)。
+- 升级项目：[UPGRADING.md](UPGRADING.md)。
 
 ## 和常见标准的关系
 
@@ -31,22 +91,7 @@ MAP 建在常见的 agent 标准之上，会用到它们，但不替代其中任
 
 MAP 项目里的 agent 照样可以用 MCP 服务器，也可以用 A2A 通信；MAP 只要求交接、批准和发布按它的规则、经过 coordination 分支。
 
-## 怎么用
-
-- **Claude Code 插件：**
-  ```text
-  /plugin marketplace add gao-xh/multi-agent-protocol
-  /plugin install multi-agent-protocol@gao-xh-agents
-  ```
-  插件提供 `lead`、`line`、`release`、`liaison`（替负责人传话）、`relay`（替别的会话在本机执行命令）、`coordinate` 六个技能，以及 `builder` 和只读的 `reviewer` 两个子 agent。
-- **任何 agent：** 首次配置时把 [adapters/BOOTSTRAP.md](adapters/BOOTSTRAP.md) 里的提示词贴给它：它先自己查清项目情况，把所有配置列成一页编号方案（你回"同意"或按编号改），写入前给你预览规则段，建好协调分支，自己加入，再给每个其他 agent 一张启动卡片。之后加入的 agent 贴 [adapters/JOIN.md](adapters/JOIN.md)：读项目配置、只配置自己，通常一个问题都不用问；角色表里没有的 agent，你在场就当场登记，不在场就以"待登记"身份报到，等 lead 问过你再登记。以后改某一项配置，用 [adapters/CHANGE.md](adapters/CHANGE.md) 交给 lead。初始化时先问配置要多详细（快速、标准、详细三档），再问哪种任务模式最合适（[adapters/modes.md](adapters/modes.md)：简单 GitHub 协作、私有开发公开发布、服务器部署、App 发布、负责人联络 agent、软件包发布、文档或网站、数据流水线、多服务单仓库、有外部贡献者的开源项目、研究或原型、重构或迁移、安全审计或代码审查、故障应急、远程 lead 加本地 agent），按选择给出建议。主流 agent（Claude Code、Codex、GitHub Copilot、Cursor、Gemini CLI、Windsurf、Cline、Kiro、Amp、OpenCode、Aider、Zed 等）怎么读规则、能不能推送协调分支、怎么叫醒，见 [adapters/README.md](adapters/README.md)；Windows、macOS、Linux 和 GitHub、GitLab、Bitbucket、Gitea、Azure DevOps 的注意事项见 [adapters/platforms.md](adapters/platforms.md)。各工具的详细说明见 [Codex](adapters/codex.md)、[GitHub Copilot](adapters/copilot.md)、[Gemini CLI](adapters/gemini.md)、[Cursor](adapters/cursor.md)、[OpenCode](adapters/opencode.md) 和 [Aider](adapters/aider.md)。用较小或较便宜的模型（比如 DeepSeek 的快速版）时，再加上 [adapters/compact-rules.md](adapters/compact-rules.md) 里的简短会话卡片。
-- **手动：** clone 本仓库后运行 `scripts/install.sh <你的项目>`，它把协议、脚本和模板复制到项目的 `tools/multi-agent-protocol/`，以后重新运行即可更新；再把规则片段贴进项目的 `AGENTS.md`。
-
-可以从**最小配置**开始（一个负责人、两三个会话），只需遵守批准、隔离、交接和汇报几条规则；会话、机器、工具或负责人变多时，再升级到**完整配置**（见 PROTOCOL.md 12.1）。多个负责人共同管理时，按 PROTOCOL.md 3.5 在角色表里写明每个人的批准范围。
-
-插件可以在每次会话开始时自动列出未读消息，并在有新消息时叫醒会话（即使它正停在输入提示处空闲；这一点还没在真实会话里验证过）：插件的 monitor 运行 `scripts/watch.sh`，每 30 秒拉取一次协调分支，有发给这条线的新消息就提醒，不调用模型。在该工作目录运行一次 `/multi-agent-protocol:coordinate set-line <线名>` 即可开启，不设置就什么都不做。其他工具可以把 `scripts/watch.sh --once <线名>` 当作后台任务：先输出还没提醒过的未读消息；没有的话就等下一条新消息，输出后退出。一次来了三条以上新消息时，只输出一行汇总。
-
-**远程工作：** 负责人或 lead 不在放数据、跑环境的那台电脑旁边时，那台电脑上的 agent 仍然可以通过协调分支接活（[adapters/modes.md](adapters/modes.md) 的模式 15）。`scripts/runner.sh` 在有新消息时启动一个无界面的 agent（Claude Code、Codex、OpenCode）；`relay` 角色在本机执行别的会话要求的命令；负责人还可以在另一台电脑上用 `scripts/remote.sh` 直接遥控 relay，命令用 SSH 密钥签名，或在项目允许时不签名（`- Owner commands:`）。relay 缺权限时，`remote.sh` 会列出它要的规则，负责人按 `y` 才放行这一次。配置指南见 [adapters/remote.md](adapters/remote.md)。
+## 工作原理
 
 角色是职责，不是进程：同一个角色可以开多个会话并行（多条开发线、多个 builder 和 reviewer；多个 lead 按区域分工；多个发布会话通过 `release-main` 认领轮流推进主分支），项目也可以自己加角色（比如测试、文档、安全审计），但批准权只在负责人，只有发布角色能推进主分支。见 PROTOCOL.md 2.1。
 

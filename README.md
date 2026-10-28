@@ -14,21 +14,9 @@
 > If the project is already set up and you are asked to join it, follow
 > [adapters/JOIN.md](adapters/JOIN.md) instead.
 
-A governance and release protocol for several AI coding agents (Claude Code, Codex and
-others) that work on one project in parallel, on behalf of one human owner.
-
-Orchestrators start agents, give them worktrees and show their progress. They mostly leave
-open who may approve what, how agents hand work to each other, and how a change gets from a
-finished branch to production without anyone cutting corners. This protocol covers that
-part. It is a set of rules plus a few small tools, and it works with any orchestrator, or
-with plain terminal sessions on different machines.
-
-- **[PROTOCOL.md](PROTOCOL.md)**: the protocol (RFC 2119 wording, about 15 minutes to read).
-- **[UPGRADING.md](UPGRADING.md)**: how to find your version and update a project, with several sessions.
-- **[scripts/](scripts/)**: POSIX `sh` tools for the git-based coordination branch. They need only git.
-- **[templates/](templates/)**: message templates (handover, release request, released, returned, review, heads-up, joined, transfer, status, review packet; `send.sh --template question` and `answer` print the short ones).
-- **[adapters/](adapters/)**: the `AGENTS.md` snippet, a bootstrap prompt for any agent, and notes for Codex.
-- **Claude Code plugin**: role skills (`lead`, `line`, `release`, `liaison`, `relay`, `coordinate`) and `builder` / `reviewer` agents.
+MAP makes a group of AI coding agents (Claude Code, Codex and others) actually work on
+your project together, as a team: a lead plans and hands out the work, the other agents build their parts in
+parallel and review each other, and you only step in for decisions.
 
 > **Release candidate 2.0.0-rc.1** is on the branch `next` (tag `v2.0.0-rc.1`); `main` and
 > the plugin marketplace stay on 1.3.1 until 2.0.0. To try it, take the files from the tag:
@@ -37,29 +25,129 @@ with plain terminal sessions on different machines.
 > run its `scripts/install.sh` on your project, and tell a setup agent to read the files
 > of the tag instead of `main`. What changed: [CHANGELOG.md](CHANGELOG.md).
 
-## Why
+## How the team works
 
-Running several agents at once fails in predictable ways. Two sessions edit one working
-tree. One agent tells another "the owner approved it". A deployment fails, but a pipe hides
-the exit status and the main branch moves anyway. A long feature lands on a stale base. The
-protocol is built around five things that prevent these:
+- **Division of work.** The lead splits a task into parts and gives each to a line of
+  work: one agent with its own branch and an area of the project, listed in a role table.
+  Lines build in parallel, and any role can run as several sessions.
+- **Handing out work and handing it over.** Work moves as written messages on a
+  coordination branch in your own repository: a handover carries the goal, the facts so
+  far and the checks to run; a claim keeps two agents from starting the same task; status
+  files show who does what. A whole line can move to another agent or machine and carry on.
+- **No babysitting.** New messages reach the agents without you: a runner starts a headless
+  agent for them, and a Claude Code monitor notifies an open session. When you are away, questions go to the lead, which asks
+  you everything at once when you are back.
+- **Any tools, any machines.** Claude Code, Codex, OpenCode, Copilot and others share one
+  team through plain git, and a lead on the web can hand work to agents on your
+  workstation ([remote work](#4-remote-work-optional)).
 
-1. **Owner authority.** Only the human owner approves. An approval relayed by another
-   agent never counts. Standing authorizations are allowed, but they are recorded with
-   their date, scope, exclusions and the owner's own words, and read narrowly. An owner who
-   is not in the agent's session can approve with a record signed by their SSH key.
-2. **Isolation.** One writer per working tree, one branch per line of work, free ports and
-   disposable databases for every test run.
-3. **A dedicated release role** that verifies strictly: review, overlap check, local gate,
-   CI on the exact SHA, approvals confirmed with the owner, one scripted deploy, success
-   read from the real exit status, and only then the main branch moves.
-4. **Build → independent review → fix → release.** New features are reviewed by an agent
-   that did not build them, with ranked findings and evidence, for at most five rounds.
-5. **Interface changes are announced before merge**, and the old form keeps working where
-   feasible.
+## Quality you can check
 
-The protocol ends with a [table of real failure modes](PROTOCOL.md#11-known-failure-modes)
-and the rule that prevents each one.
+- **Independent review.** An agent that did not build a change reviews it, with ranked
+  findings and evidence; a verdict covers only the commit it names.
+- **One release role** advances the main branch, after the checks pass on the exact commit
+  and the approvals are confirmed.
+- **"Done" means** a pushed commit SHA plus the checks that actually ran.
+
+## You stay in charge
+
+- **Only you approve.** An approval relayed by another agent never counts.
+- **Standing authorizations** are allowed, recorded in your own words with their scope and
+  exclusions; a record signed with your SSH key lets you approve from elsewhere.
+- **Setup asks you once**: one numbered page of settings, each with a recommendation.
+
+## Under the hood
+
+The teamwork rests on a few plain rules, so that parallel work does not collide: one
+writer per working tree, one branch per line, a claim before work starts, interface
+changes announced before they merge, and a [table of real failure
+modes](PROTOCOL.md#11-known-failure-modes) with the rule that prevents each one. MAP is a
+set of rules plus a few small tools; it works with any orchestrator, or with plain
+terminal sessions on different machines.
+
+- **[PROTOCOL.md](PROTOCOL.md)**: the protocol (RFC 2119 wording, about 15 minutes to read).
+- **[UPGRADING.md](UPGRADING.md)**: how to find your version and update a project, with several sessions.
+- **[scripts/](scripts/)**: POSIX `sh` tools for the git-based coordination branch. They need only git.
+- **[templates/](templates/)**: message templates (handover, release request, released, returned, review, heads-up, joined, transfer, status, review packet; `send.sh --template question` and `answer` print the short ones).
+- **[adapters/](adapters/)**: the `AGENTS.md` snippet, setup and join prompts for any agent, and notes per tool.
+- **Claude Code plugin**: role skills (`lead`, `line`, `release`, `liaison`, `relay`, `coordinate`) and `builder` / `reviewer` agents.
+
+## Getting started
+
+### 1. Set up the project
+
+In your project, tell the agent that will lead (Claude Code, Codex or another): "Set up
+this project with https://github.com/gao-xh/multi-agent-protocol". It follows
+[adapters/BOOTSTRAP.md](adapters/BOOTSTRAP.md) by itself:
+
+1. looks at the repository, its checks and its own environment, and changes nothing yet;
+2. asks you three things: how much detail you want to see, what kind of project this is
+   (a [task mode](adapters/modes.md)), and which agents will work on it;
+3. proposes every setting on one numbered page, each marked as found, recommended or
+   assumed: you answer "ok" or change items by number;
+4. shows the rules block before writing it, writes it into `AGENTS.md`, creates the
+   coordination branch and joins as the lead;
+5. gives you a start card for each other agent: where to open it and what to paste.
+
+Start small: one owner and two or three sessions need only the core rules; the
+coordination branch and the release role come in as you add sessions, machines, tools or
+owners ([profiles](PROTOCOL.md#121-profiles)).
+
+### 2. Add the other agents
+
+Open each agent as its start card says and paste the one line on the card (it points
+the agent to [adapters/JOIN.md](adapters/JOIN.md)). The agent reads the project's settings, checks its own environment, configures only itself and
+announces itself to the team; usually it asks nothing. An agent that is not in the role
+table yet is added with your approval. To change a setting later, give the lead
+[adapters/CHANGE.md](adapters/CHANGE.md).
+
+### 3. Claude Code plugin (optional)
+
+```text
+/plugin marketplace add gao-xh/multi-agent-protocol
+/plugin install multi-agent-protocol@gao-xh-agents
+/multi-agent-protocol:coordinate set-line api      # once per worktree
+```
+
+Start each session with its role (`/multi-agent-protocol:lead`, `/multi-agent-protocol:line
+api`, `/multi-agent-protocol:release`); `/multi-agent-protocol:coordinate` handles the
+inbox, messages and claims, and `builder` and `reviewer` agents take delegated work. With a
+line name set, each session starts with its unread messages and claims, and a monitor
+notifies it when a new message arrives.
+
+### 4. Remote work (optional)
+
+When you or the lead work away from the machine that has the data or the environment,
+agents there still take work through the coordination branch (task mode 15).
+`scripts/runner.sh` starts a headless agent (Claude Code, Codex, OpenCode) whenever new
+messages arrive for its line; a `relay` runs the commands other sessions ask for on that
+machine; and you can drive a relay from another computer with `scripts/remote.sh`, signed
+with an SSH key or, where the project allows it, unsigned. When a relay lacks a
+permission, `remote.sh` shows the rule it asks for and allows it for one run on your `y`.
+Setup guide: [adapters/remote.md](adapters/remote.md).
+
+### 5. By hand
+
+```sh
+git clone https://github.com/gao-xh/multi-agent-protocol
+multi-agent-protocol/scripts/install.sh path/to/your-project   # rerun later to update
+```
+
+This copies the protocol, scripts and templates into `tools/multi-agent-protocol/` and
+changes nothing else. Paste the snippet into `AGENTS.md` (point `CLAUDE.md` to it for
+Claude Code), fill in the role table, and run
+`tools/multi-agent-protocol/scripts/init-coordination.sh`.
+
+### Reference
+
+- Kinds of project and what each needs: [adapters/modes.md](adapters/modes.md).
+- Agent tools (rules, pushing, waking): [adapters/README.md](adapters/README.md), with notes
+  for [Codex](adapters/codex.md), [OpenCode](adapters/opencode.md),
+  [Aider](adapters/aider.md), [GitHub Copilot](adapters/copilot.md),
+  [Gemini CLI](adapters/gemini.md) and [Cursor](adapters/cursor.md).
+- Windows, macOS, Linux and git hosts: [adapters/platforms.md](adapters/platforms.md).
+- Smaller or cheaper models: [adapters/compact-rules.md](adapters/compact-rules.md).
+- Upgrading a project: [UPGRADING.md](UPGRADING.md).
 
 ## Where it fits
 
@@ -178,92 +266,6 @@ scripts/verify.sh decisions/<file>           # is this approval really signed by
 
 Tools that have their own messaging between sessions can use it for speed, but handovers,
 release requests and their answers are still written to the branch.
-
-## Three ways to use it
-
-Start small. The **minimal profile** (one owner, two or three sessions) needs only the
-authority, isolation, handover and report rules; the coordination branch and the release
-role come in with the **full profile** when you add more sessions, machines, tools or
-owners ([PROTOCOL.md 12.1](PROTOCOL.md#121-profiles)).
-
-### 1. Claude Code plugin
-
-```text
-/plugin marketplace add gao-xh/multi-agent-protocol
-/plugin install multi-agent-protocol@gao-xh-agents
-```
-
-Then start each session with its role: `/multi-agent-protocol:lead`,
-`/multi-agent-protocol:line api`, `/multi-agent-protocol:release`, and use
-`/multi-agent-protocol:coordinate` for the inbox, messages and claims. The `builder` and
-`reviewer` agents become available for delegation. The reviewer has no file-editing tools
-and cannot start other agents; it does have Bash to run the change, and is read-only by
-instruction.
-
-Optional: give the worktree a line name once. Each session then starts with a summary of
-its unread messages and active claims (the plugin's SessionStart hook runs
-`scripts/session-start.sh`), and the plugin's monitor runs `scripts/watch.sh`, which fetches
-the coordination branch every 30 seconds and is meant to wake the session, even when it is idle at
-the prompt, when a new message arrives for its line (not yet checked in a real Claude Code
-session). Without a line name both do nothing. The stored name binds every later
-session in that worktree to the line; only one watcher per line runs in a worktree, and a
-second one exits with a one-line notice.
-
-```text
-/multi-agent-protocol:coordinate set-line api      # once per worktree; or start with MAP_LINE=api
-```
-
-### 2. Bootstrap prompt, for any agent
-
-Paste the prompt in [adapters/BOOTSTRAP.md](adapters/BOOTSTRAP.md) into Codex, Claude Code
-or another agent inside your project, once. The agent finds out what it can about the
-project, proposes every setting on one numbered page (you answer "ok" or change items by
-number), shows the rules block before writing it, creates the coordination branch, joins
-itself, and gives you a start card for each other agent. Agents that join later paste
-[adapters/JOIN.md](adapters/JOIN.md): they read the project's settings, configure only
-themselves and usually ask nothing; an agent with no row in the role table is registered
-by you in its session, or joins as pending until the lead registers it with your
-approval. Change one setting later through the lead with
-[adapters/CHANGE.md](adapters/CHANGE.md). Which mainstream agents read the rules, can
-push the coordination branch and can be woken, and what to set for each:
-[adapters/README.md](adapters/README.md); Windows, macOS, Linux and the git hosts (GitHub,
-GitLab, Bitbucket, Gitea/Forgejo, Azure DevOps): [adapters/platforms.md](adapters/platforms.md).
-The setup first asks how detailed it should be (quick, standard or detailed) and which task
-mode fits the project ([adapters/modes.md](adapters/modes.md): simple GitHub
-collaboration, private development with public release, server deployment, app release,
-an owner liaison, package release, documentation, data pipelines, several services in one
-repository, open source with outside contributors, research or prototype, refactoring or
-migration, security audit or review, incident response, remote lead with local agents).
-Tool notes: [GitHub Copilot](adapters/copilot.md), [Gemini CLI](adapters/gemini.md),
-[Cursor](adapters/cursor.md), [Codex](adapters/codex.md) (sandbox network access for `git push`, `codex exec`, polling
-on a timer), [OpenCode](adapters/opencode.md) (rules, permissions, `opencode run`) and
-[Aider](adapters/aider.md) (loading the rules, automatic commits, a wrapper). For smaller
-or cheaper models, such as the fast tiers of DeepSeek, add the short session card from
-[adapters/compact-rules.md](adapters/compact-rules.md).
-
-### Remote work
-
-When the owner or the lead works away from the machine that has the data or the
-environment, agents there can still take work through the coordination branch: task
-mode 15 in [adapters/modes.md](adapters/modes.md). `scripts/runner.sh` starts a
-headless agent (Claude Code, Codex, OpenCode) whenever new messages arrive for its line;
-a `relay` runs the commands other sessions ask for on that machine; and the owner can
-drive a relay directly from another computer with `scripts/remote.sh`, signed with an SSH
-key or, where the project allows it, unsigned (`- Owner commands:`). When a relay lacks
-a permission, `remote.sh` shows the rule it asks for and allows it for one run only on
-the owner's `y`. Setup guide: [adapters/remote.md](adapters/remote.md).
-
-### 3. Install into the project by hand
-
-```sh
-git clone https://github.com/gao-xh/multi-agent-protocol
-multi-agent-protocol/scripts/install.sh path/to/your-project   # rerun later to update
-```
-
-This copies the protocol, scripts, templates and the rules snippet into
-`tools/multi-agent-protocol/` and changes nothing else. Then paste the snippet into your
-project's `AGENTS.md` (Codex reads it; point `CLAUDE.md` to it for Claude Code), fill in
-the table, and run `tools/multi-agent-protocol/scripts/init-coordination.sh`.
 
 ## Tests
 
