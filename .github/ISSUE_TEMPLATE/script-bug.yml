@@ -1,0 +1,33 @@
+name: Script bug
+description: A script in scripts/ did something wrong
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: MAP version
+      description: The first line of VERSION in your installed copy, or the tag you use
+      placeholder: Multi-Agent Protocol 2.1.0
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command, exit status and output
+      description: Leave out host names, user names, personal paths and secrets.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Shell, operating system, git version
+      placeholder: dash 0.5.12, Ubuntu 24.04, git 2.47
+    validations:
+      required: true

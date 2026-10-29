@@ -72,14 +72,28 @@ Sessions on different versions can disagree, for example about message types.
 Release candidates are on the branch `next` with a tag `vX.Y.Z-rc.N`; `main` and the
 plugin marketplace keep the stable release. To try one in a project you can reset:
 
-1. Clone the candidate: `git clone --branch v2.0.0-rc.N https://github.com/gao-xh/multi-agent-protocol map-rc`.
-   A 1.3 copy has no `upgrade.sh`, so use the clone's.
-2. See what changes: `map-rc/scripts/upgrade.sh --check --to 2.0.0-rc.N <your-project>`.
-3. Install it on a branch of your project: `map-rc/scripts/upgrade.sh --to 2.0.0-rc.N <your-project>`.
+1. Clone the candidate: `git clone --branch vX.Y.Z-rc.N https://github.com/gao-xh/multi-agent-protocol map-rc`.
+   A 1.3 copy has no `upgrade.sh`, so use the clone's (for example `v2.1.0-rc.1`).
+2. See what changes: `map-rc/scripts/upgrade.sh --check --to X.Y.Z-rc.N <your-project>`.
+3. Install it on a branch of your project: `map-rc/scripts/upgrade.sh --to X.Y.Z-rc.N <your-project>`.
 4. For the Claude Code plugin, remove the stable marketplace first
    (`/plugin marketplace remove gao-xh-agents`), then `/plugin marketplace add ./map-rc`
    and install the plugin again.
 5. Tell setup and join agents to read the files of the candidate's tag, not `main`.
+
+## Notes for 2.1
+
+Coming from 2.0, nothing must change: every addition is optional. After the upgrade steps
+above:
+
+- Run `scripts/set-line.sh <line>` in every checkout a line works in (PROTOCOL.md 5.5),
+  including desktop-app worktrees; `scripts/doctor.sh` warns about an unmarked checkout.
+- Fill in the new optional status fields when you next update your status; `status.sh`
+  detects Toolchain, Checkout and the operating system for you.
+- A session that waits for an answer arms its wake-up (PROTOCOL.md 5.5); `send.sh` now
+  notices recipients that cannot be woken.
+- Tools that write runner or watcher locks (for example map-conductor) need the 2.1
+  scripts: older scripts ignore the `holder` file.
 
 ## Notes for 2.0
 

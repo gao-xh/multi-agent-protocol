@@ -14,7 +14,7 @@ MAP_MAIN=${MAP_MAIN:-main}
 MAP_MAIN_REMOTE=${MAP_MAIN_REMOTE:-$MAP_REMOTE}
 MAP_MAX_ATTEMPTS=${MAP_MAX_ATTEMPTS:-5}
 # The version of these scripts; the release role keeps it equal to .claude-plugin/plugin.json.
-MAP_VERSION=2.0.0
+MAP_VERSION=2.1.0-rc.1
 # Where newer versions are published (update_notice).
 MAP_UPSTREAM=${MAP_UPSTREAM:-https://github.com/gao-xh/multi-agent-protocol.git}
 MAP_MESSAGE_TYPES="handover release-request released returned review heads-up question answer command"
@@ -355,14 +355,25 @@ refuse_secrets() {
     exit 1
 }
 
-# True when PID $1 is alive and, where ps can tell, still runs a command that contains $2
-# (a lock left by a dead process whose PID was reused is stale; -ww: never cut at 80
-# columns). When ps cannot tell (no ps, or no "-o args"), any live process counts.
+# lock_holder_alive <pid> <name> [<lock dir>]
+# True when PID $1 is alive and, where ps can tell, still runs a command that contains the
+# holder's name (a lock left by a dead process whose PID was reused is stale; -ww: never
+# cut at 80 columns). The name is the first line of <lock dir>/holder when that file
+# exists (runner.sh, watch.sh, or another program that takes the lock, such as mapc), and
+# $2 otherwise; it must appear in the holding process's command line (ps -o args). A
+# holder that is not one plain word of at least three characters (letters, digits, ".",
+# "-", "_"; surrounding blanks are ignored) counts as not alive. When ps cannot tell (no
+# ps, or no "-o args"), any live process counts.
 lock_holder_alive() {
+    holder_name=$2
+    if [ -n "${3:-}" ] && [ -f "${3}/holder" ]; then
+        holder_name=$(head -n 1 "${3}/holder" 2>/dev/null | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+        case "$holder_name" in "" | ? | ?? | *[!A-Za-z0-9._-]*) return 1 ;; esac
+    fi
     kill -0 "$1" 2>/dev/null || return 1
     holder_args=$(ps -ww -p "$1" -o args= 2>/dev/null) || return 0
     [ -n "$holder_args" ] || return 0
-    case "$holder_args" in *"$2"*) return 0 ;; esac
+    case "$holder_args" in *"$holder_name"*) return 0 ;; esac
     return 1
 }
 

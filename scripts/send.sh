@@ -1,12 +1,21 @@
 #!/bin/sh
 # Publish a message on the coordination branch (PROTOCOL.md 5.4).
-# Usage: send.sh [--strict] [--allow-secret] <message-file>
+# Usage: send.sh [--strict] [--allow-secret] [--result] <message-file>
 #                                          publish a filled-in message (header + body)
 #        send.sh --template <type>         print the template for <type> to fill in
 #                                          (also "joined", sent when a session joins, and "transfer",
 #                                          the handover when a line moves to another agent)
 # The file name is chosen for you: messages/<UTC timestamp>_<from>_<type>.md.
 # Prints the published path. Retries when the push is rejected.
+# --result prints instead, one "key: value" per line, in this order: map-send-result: 1,
+# path: messages/<file>, event: <file name without .md>, commit: <full SHA of the
+# coordination commit that added the message>, to: <the to: header>, type: <type>.
+# Readers ignore keys they do not know; the key "project" is reserved. A tool that sends
+# notification hints takes the commit and the event from it (PROTOCOL.md 5.1 item 3).
+# After sending, prints a notice on stderr for each recipient line whose status says it
+# cannot be woken ("Wake: none ..." or a session-start hook only), so that the sender
+# also tells it directly or tells the owner (PROTOCOL.md 5.5); the exit status is the same.
+# Other wordings for "cannot be woken" are not recognised and get no notice.
 # --strict (or MAP_STRICT=1) refuses, with exit status 1, a message whose header or
 # "- Field: <...>" lines still hold a placeholder, that still has a line of its
 # template unchanged (a line with <...>), or that lacks a "## " heading of the template.
@@ -29,7 +38,7 @@ is_message_type() {
 }
 
 case "${1:-}" in
-    -h | --help | "") sed -n '2,16s/^# \{0,1\}//p' "$0"; [ $# -gt 0 ]; exit $? ;;
+    -h | --help | "") sed -n '2,25s/^# \{0,1\}//p' "$0"; [ $# -gt 0 ]; exit $? ;;
     --template)
         [ $# -eq 2 ] || die "usage: send.sh --template <type>"
         case "$2" in
@@ -61,16 +70,18 @@ case "${MAP_STRICT:-0}" in
     *) note "warning: MAP_STRICT='${MAP_STRICT}' is not 1; strict mode is off" ;;
 esac
 allow_secret=0
+result=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --strict) strict=1 ;;
         --allow-secret) allow_secret=1 ;;
+        --result) result=1 ;;
         -*) die "unknown option '$1'" ;;
         *) break ;;
     esac
     shift
 done
-[ $# -eq 1 ] || die "usage: send.sh [--strict] [--allow-secret] <message-file>"
+[ $# -eq 1 ] || die "usage: send.sh [--strict] [--allow-secret] [--result] <message-file>"
 source_file=$1
 [ -f "$source_file" ] || die "no such file: ${source_file}"
 [ "$allow_secret" -eq 1 ] ||
@@ -177,4 +188,31 @@ write_message() {
 }
 
 publish_change write_message "chore: send ${message_type} from ${from} to ${to}" || exit $?
-printf '%s\n' "$published"
+if [ "$result" -eq 1 ]; then
+    event=${published#messages/}
+    printf 'map-send-result: 1\npath: %s\nevent: %s\ncommit: %s\nto: %s\ntype: %s\n' \
+        "$published" "${event%.md}" "$(git rev-parse "$(coordination_ref)")" "$to" "$message_type"
+else
+    printf '%s\n' "$published"
+fi
+
+# Recipient lines that cannot be woken (PROTOCOL.md 5.5): "all", roles and lines without a
+# status file or Wake field get no notice, nor does a Wake that is still a placeholder.
+set -f
+notified=" "
+for recipient in $(printf '%s\n' "$to" | tr ',' ' '); do
+    case "$recipient" in all | owner | *[!A-Za-z0-9.-]* | .*) continue ;; esac
+    case "$notified" in *" ${recipient} "*) continue ;; esac
+    notified="${notified}${recipient} "
+    wake=$(show_file "status/${recipient}.md" | status_value Wake)
+    lower=$(printf '%s\n' "$wake" | tr '[:upper:]' '[:lower:]')
+    case "$lower" in
+        "" | "<"*) continue ;;
+        none | none[!a-z0-9-]*) ;;
+        *monitor* | *background* | *runner* | *notification* | *timer* | *watch*) continue ;;
+        *session-start* | *"session start"*) ;;
+        *) continue ;;
+    esac
+    note "notice: ${recipient} cannot be woken (Wake: ${wake}); tell it directly or tell the owner (PROTOCOL.md 5.5)"
+done
+set +f

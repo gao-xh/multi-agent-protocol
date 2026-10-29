@@ -1,8 +1,15 @@
 #!/bin/sh
 # Check the coordination branch: layout, message names and headers, immutable
 # messages, status files and claims (PROTOCOL.md 5.2 to 5.6), and the versions sessions
-# report. Read-only. Also prints a NOTICE line when a newer release exists upstream (see
+# report. Read-only, apart from a probe file it creates and removes in the git
+# directory. Also prints a NOTICE line when a newer release exists upstream (see
 # UPGRADING.md: MAP_UPSTREAM, MAP_UPDATE_SECONDS, MAP_UPDATE_CHECK=0); not with --no-fetch.
+# First it checks this session: an ERROR when it cannot write the clone's git directory
+# (then it does not fetch and checks the last fetched copy), and (not with --no-fetch) a
+# WARNING when the remote does not answer within MAP_FETCH_SECONDS (default 10); both
+# point to adapters/codex.md (sandbox settings). A WARNING when this checkout is not
+# marked as any line's (no MAP_LINE, no map-line from set-line.sh), and a NOTE when
+# MAP_LINE and the mark name different lines (MAP_LINE wins) (PROTOCOL.md 5.5).
 # Usage: doctor.sh [--no-fetch]
 # Exit status: 0 when there are no errors (warnings allowed), 1 on errors, 2 if it cannot run.
 set -u
@@ -13,12 +20,45 @@ PROG=doctor.sh
 fetch=1
 case "${1:-}" in
     --no-fetch) fetch=0 ;;
-    -h | --help) sed -n '2,7s/^# \{0,1\}//p' "$0"; exit 0 ;;
+    -h | --help) sed -n '2,15s/^# \{0,1\}//p' "$0"; exit 0 ;;
     "") ;;
     *) die "unknown option '$1'" ;;
 esac
 
 require_repo
+errors=0
+warnings=0
+error() { printf 'ERROR    %s\n' "$*"; errors=$((errors + 1)); }
+warn() { printf 'WARNING  %s\n' "$*"; warnings=$((warnings + 1)); }
+
+# This session: write access to the git directories (the common one and, in a linked
+# worktree, its own) and the remote, before the fetch that needs both (adapters/codex.md).
+for git_dir in "$(git rev-parse --git-common-dir)" "$(git rev-parse --git-dir)"; do
+    git_dir=$(CDPATH='' cd -- "$git_dir" 2>/dev/null && pwd -P) || continue
+    case " ${probed_dirs:-} " in *" ${git_dir} "*) continue ;; esac
+    probed_dirs="${probed_dirs:-} ${git_dir}"
+    if probe=$(mktemp "${git_dir}/map-doctor.XXXXXX" 2>/dev/null); then
+        rm -f "$probe"
+    else
+        error "cannot write the git directory ${git_dir}: fetch, commit and the coordination scripts will fail; see adapters/codex.md (sandbox writable roots)"
+    fi
+done
+if [ "$fetch" -eq 1 ] &&
+    ! quiet_git "${MAP_FETCH_SECONDS:-10}" /dev/null ls-remote --heads "$MAP_REMOTE" "$MAP_BRANCH"; then
+    warn "the remote '${MAP_REMOTE}' did not answer: no network or no access; see adapters/codex.md section 2"
+fi
+# The checkout's line mark (PROTOCOL.md 5.5, "Marking checkouts").
+line_mark=$(head -n 1 "$(git rev-parse --git-dir)/map-line" 2>/dev/null | tr -d '\r')
+if [ -z "${MAP_LINE:-}" ] && [ -z "$line_mark" ]; then
+    warn "this checkout is not marked as any line's; run scripts/set-line.sh <line> (PROTOCOL.md 5.5)"
+elif [ -n "${MAP_LINE:-}" ] && [ -n "$line_mark" ] && [ "$MAP_LINE" != "$line_mark" ]; then
+    printf 'NOTE     MAP_LINE is %s but this checkout is marked as line %s (set-line.sh); MAP_LINE wins\n' "'${MAP_LINE}'" "'${line_mark}'"
+fi
+if [ "$fetch" -eq 1 ] && [ "$errors" -gt 0 ]; then
+    note "not fetching (the git directory is not writable); checking the last fetched copy"
+    fetch=0
+fi
+
 if [ "$fetch" -eq 1 ]; then
     fetch_coordination
     fetch_main_quietly # for the project's own message types (PROTOCOL.md 5.4)
@@ -26,11 +66,6 @@ fi
 all_types="${MAP_MESSAGE_TYPES} $(project_message_types | tr '\n' ' ')"
 ref=$(coordination_ref)
 git rev-parse --verify --quiet "$ref" >/dev/null || die "no local copy of '${MAP_BRANCH}'"
-
-errors=0
-warnings=0
-error() { printf 'ERROR    %s\n' "$*"; errors=$((errors + 1)); }
-warn() { printf 'WARNING  %s\n' "$*"; warnings=$((warnings + 1)); }
 
 # Layout: only the known top-level entries.
 for entry in $(git ls-tree --name-only "$ref"); do

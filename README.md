@@ -7,58 +7,145 @@
 
 [中文说明](README.zh-CN.md)
 
-> **For AI agents:** if you were given this link and asked to set the protocol up in a
-> project, follow [adapters/BOOTSTRAP.md](adapters/BOOTSTRAP.md) step by step (raw text:
-> https://raw.githubusercontent.com/gao-xh/multi-agent-protocol/main/adapters/BOOTSTRAP.md).
-> It tells you what to check, what to ask the owner, and what to change only after they answer.
-> If the project is already set up and you are asked to join it, follow
-> [adapters/JOIN.md](adapters/JOIN.md) instead.
+**Run Claude Code, Codex and other coding agents on one project as a team: plain git, any
+tool, any machine, and only you approve.**
 
-MAP makes a group of AI coding agents (Claude Code, Codex and others) actually work on
-your project together, as a team: a lead plans and hands out the work, the other agents build their parts in
-parallel and review each other, and you only step in for decisions.
+> **Release candidate 2.1.0-rc.1** is on the branch `next` (tag `v2.1.0-rc.1`); `main` and
+> the plugin marketplace stay on 2.0.0 until 2.1.0. To try it, take the files from the tag:
+> `git clone --branch v2.1.0-rc.1 https://github.com/gao-xh/multi-agent-protocol`, then
+> add that folder as the marketplace (`/plugin marketplace add ./multi-agent-protocol`), or
+> run its `scripts/install.sh` on your project. To set up a project with it, tell the agent:
+> "Set up this project with https://github.com/gao-xh/multi-agent-protocol at tag
+> v2.1.0-rc.1". Upgrading from 2.0: [UPGRADING.md](UPGRADING.md). What changed:
+> [CHANGELOG.md](CHANGELOG.md).
 
-## How the team works
+Several agents on one repository go wrong in predictable ways: two sessions edit the same
+working tree, two agents take the same task, a new session does not know what the last one
+found, and "done" means "I pushed something". MAP is a protocol and a few POSIX shell
+scripts that fix this with written handovers on a git branch, so agents from different
+tools can split the work, hand it over, review each other and release.
 
-- **Division of work.** The lead splits a task into parts and gives each to a line of
-  work: one agent with its own branch and an area of the project, listed in a role table.
-  Lines build in parallel, and any role can run as several sessions.
-- **Handing out work and handing it over.** Work moves as written messages on a
-  coordination branch in your own repository: a handover carries the goal, the facts so
-  far and the checks to run; a claim keeps two agents from starting the same task; status
-  files show who does what. A whole line can move to another agent or machine and carry on.
-- **No babysitting.** New messages reach the agents without you: a runner starts a headless
-  agent for them, and a Claude Code monitor notifies an open session. When you are away, questions go to the lead, which asks
-  you everything at once when you are back.
-- **Any tools, any machines.** Claude Code, Codex, OpenCode, Copilot and others share one
-  team through plain git, and a lead on the web can hand work to agents on your
-  workstation ([remote work](#4-remote-work-optional)).
+<p align="center">
+  <img src="docs/images/map-flow.svg" width="760"
+       alt="You give the lead a goal. The lead hands work to line data (Codex) and line fit (Claude Code); data hands its loader to fit at an exact commit. The lead sends a review packet for that commit to a reviewer that did not build it, which reports its findings to the lead. Fit sends a release-request that names the review; the release role merges into main after the checks pass on that commit and reports back to the lead. You approve tags and publishing. Every solid arrow is a file on the coordination branch.">
+</p>
 
-## Quality you can check
+**Quick start:** tell the agent that will lead "Set up this project with
+https://github.com/gao-xh/multi-agent-protocol" ([details](#getting-started)).
+**See it run:** [map-demo](https://github.com/gao-xh/map-demo) replays the story below in
+one command, and [a 75-second video](https://github.com/gao-xh/map-demo/blob/main/docs/runs/2026-10-29-real-agents.mp4)
+shows a real run with Claude Code and Codex.
 
-- **Independent review.** An agent that did not build a change reviews it, with ranked
-  findings and evidence; a verdict covers only the commit it names.
-- **One release role** advances the main branch, after the checks pass on the exact commit
-  and the approvals are confirmed.
-- **"Done" means** a pushed commit SHA plus the checks that actually ran.
+https://github.com/user-attachments/assets/3dd7fc8b-3a6b-4d9c-9ed3-26bc05d11cc6
 
-## You stay in charge
+## How a feature gets built
 
-- **Only you approve.** An approval relayed by another agent never counts.
-- **Standing authorizations** are allowed, recorded in your own words with their scope and
-  exclusions; a record signed with your SSH key lets you approve from elsewhere.
-- **Setup asks you once**: one numbered page of settings, each with a recommendation.
+1. You tell the lead what you want. It splits the work into **lines**, each one agent with
+   its own branch and area, and sends each a `handover`: the goal, what is known, and what
+   "done" means.
+2. Each line **claims** its task, so no two agents start the same work, and builds in its
+   own worktree.
+3. In the demo project, the `data` line, in Codex, finishes the loader for the measurement
+   files and hands it to the `fit` line, in Claude Code, naming the branch, the exact
+   commit and the tests it ran. `fit` builds the decay fit on top of it.
+4. The lead asks an agent that did not build the change to **review** that commit; the
+   reviewer reports ranked findings with evidence back to the lead.
+5. The line sends a release-request that names the review. The **release** role merges
+   into `main` only after the checks pass on that exact commit, and reports back; tags and
+   publishing wait for your approval.
+6. When a session ends or runs out of context, it leaves a `transfer` handover; the next
+   session, in any tool or on another machine, checks every branch SHA and carries on.
+
+In a real run, Codex as the reviewer found a bug in Claude Code's fit (it failed when
+the time axis did not start at zero); Claude Code fixed it and Codex approved the new
+commit before release. [Timeline of that run](https://github.com/gao-xh/map-demo/blob/main/docs/runs/2026-10-29-real-agents.html).
+
+You answer questions and approve; the agents do the rest, and a question that comes up
+while you are away waits for you at the lead.
+
+## What is on the branch
+
+Every solid arrow in the picture is a file on a `coordination` branch in your own repository:
+
+```
+coordination
+├── status/fit.md                                   who does what, in which environment
+├── claims/decay-fit.md                             a task taken, until when
+├── messages/20261029T023533Z_data_handover.md      one file per message, never edited
+└── decisions/<date>_<topic>.md                     your decisions, in your words
+```
+
+<details>
+<summary>What a handover looks like (from the demo)</summary>
+
+```
+type: handover
+from: data
+to: fit
+refs: messages/20261029T023527Z_lead_handover.md
+
+## Goal
+Fit a decay time with its uncertainty for every run, using the new loader.
+
+## Current state
+- Branch: data/loader at 6bb4ab2c1681e262d600d7e4afa1ba7aceb94886 (pushed: yes)
+- Code changed so far: src/decay_fit/load.py, tests/test_load.py
+
+## Confirmed facts
+- load_runs("data/sample") returns one Run per file with arrays t_s, signal, sigma
+- Rows with missing values are dropped; tested with tests/test_load.py (7 passed)
+
+## Suggested approach
+- Branch from data/loader at the SHA above
+
+## Blockers and decisions needed
+- none
+
+## Done means
+- Tests: tests/test_fit.py recovers the known decay time of data/sample/run-03.csv
+- Report back with: branch, SHA, checks run and results
+```
+
+</details>
+
+## Why the rules exist
+
+| What goes wrong without it | What MAP does |
+| --- | --- |
+| One session's tests pick up another session's half-written files | One writer per working tree, one branch per line |
+| Two agents start the same task | A claim with an expiry before work starts |
+| A new session redoes what the last one already found, or tried and failed | A written `handover` or `transfer` with SHAs, facts, the next step and what failed |
+| "Done" turns out to mean "pushed something" | Done means a pushed commit SHA plus the checks that ran and their results |
+| A review passed, then more code landed and shipped on it | A verdict covers only the commit it names |
+| An agent says "the owner approved" | Only you approve; a relayed approval never counts |
+
+Each row is a failure mode we hit; [PROTOCOL.md](PROTOCOL.md#11-known-failure-modes) has
+the full table.
+
+## Highlights
+
+- **One team across tools and machines.** Claude Code, Codex, OpenCode, Copilot, Gemini
+  CLI, Cursor and Aider work on the same project through plain git, with nothing to host
+  beyond your git remote; the scripts need `git` and `sh`, and plugins for Claude Code and
+  Codex add role skills. MAP needs no orchestrator: use it with plain terminal sessions,
+  with any session manager, or with its optional runner.
+- **Handoff that outlasts the session.** Even with a single agent, a `transfer` lets the
+  next session, tool or machine continue from verified facts instead of a pasted summary.
+- **No babysitting.** New messages reach the agents without you: an optional runner starts
+  a headless agent (Claude Code, Codex, OpenCode) when a message arrives, a Claude Code
+  monitor notifies an open session, and optional instant notifications can be added.
+- **You stay in charge.** Approvals come only from you, directly or as a record signed
+  with your SSH key; standing authorizations are written in your words with their scope.
+- **Across projects.** An agent of another project, for example a downstream tool that
+  implements the protocol, can follow your coordination branch as a listed outside
+  correspondent and send questions and compatibility notices to your lead; it changes
+  nothing in your project, and each project's owner approves only for their own project.
 
 ## Under the hood
 
-The teamwork rests on a few plain rules, so that parallel work does not collide: one
-writer per working tree, one branch per line, a claim before work starts, interface
-changes announced before they merge, and a [table of real failure
-modes](PROTOCOL.md#11-known-failure-modes) with the rule that prevents each one. MAP is a
-set of rules plus a few small tools; it works with any orchestrator, or with plain
-terminal sessions on different machines.
-
-- **[PROTOCOL.md](PROTOCOL.md)**: the protocol (RFC 2119 wording, about 15 minutes to read).
+- **[PROTOCOL.md](PROTOCOL.md)**: the protocol, in RFC 2119 wording.
+- **[docs/how-it-works.md](docs/how-it-works.md)**: the roles, how agents talk on the
+  coordination branch, and the script commands.
 - **[UPGRADING.md](UPGRADING.md)**: how to find your version and update a project, with several sessions.
 - **[scripts/](scripts/)**: POSIX `sh` tools for the git-based coordination branch. They need only git.
 - **[templates/](templates/)**: message templates (handover, release request, released, returned, review, heads-up, joined, transfer, status, review packet; `send.sh --template question` and `answer` print the short ones).
@@ -66,6 +153,13 @@ terminal sessions on different machines.
 - **Claude Code plugin**: role skills (`lead`, `line`, `release`, `liaison`, `relay`, `coordinate`) and `builder` / `reviewer` agents.
 
 ## Getting started
+
+> **For AI agents:** if you were given this link and asked to set the protocol up in a
+> project, follow [adapters/BOOTSTRAP.md](adapters/BOOTSTRAP.md) step by step (raw text:
+> https://raw.githubusercontent.com/gao-xh/multi-agent-protocol/main/adapters/BOOTSTRAP.md).
+> It tells you what to check, what to ask the owner, and what to change only after they answer.
+> If the project is already set up and you are asked to join it, follow
+> [adapters/JOIN.md](adapters/JOIN.md) instead.
 
 ### 1. Set up the project
 
@@ -163,111 +257,6 @@ MAP works above the common agent standards and uses them; it replaces none of th
 
 Agents in a MAP project may use MCP servers and talk over A2A as well; MAP only asks that
 handovers, approvals and releases go through its rules and its coordination branch.
-
-## Roles
-
-```mermaid
-flowchart TB
-    owner(["<b>Owner</b><br/>human<br/>decides and approves"])
-
-    subgraph dev["Development sessions"]
-        direction TB
-        lead["<b>Lead</b><br/>architecture, contracts,<br/>review, integration"]
-        lines["<b>Lines</b><br/>one area each,<br/>running in parallel"]
-    end
-
-    subgraph helpers["Short-lived agents"]
-        direction TB
-        builder["<b>Builder</b><br/>one task, fresh worktree"]
-        reviewer["<b>Reviewer</b><br/>read-only, ranked findings"]
-    end
-
-    board[("<b>coordination branch</b><br/>status, messages,<br/>claims, decisions")]
-    release["<b>Release</b><br/>review, verify,<br/>deploy, record"]
-    main[["<b>main branch</b>"]]
-
-    owner == "requests, approvals" ==> dev
-    dev -- "delegate, review" --> helpers
-    dev <-- "handover, heads-up,<br/>release-request" --> board
-    board <-- "released / returned" --> release
-    owner -. "approvals, asked directly" .-> release
-    release == "verified deploy" ==> main
-
-    classDef ownerNode fill:#fef3c7,stroke:#b45309,stroke-width:2px,color:#1c1917
-    classDef sessionNode fill:#e0f2fe,stroke:#0369a1,stroke-width:1.5px,color:#0c1a26
-    classDef releaseNode fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#052e16
-    classDef helperNode fill:#f4f4f5,stroke:#71717a,stroke-width:1.5px,stroke-dasharray:5 3,color:#18181b
-    classDef boardNode fill:#ede9fe,stroke:#6d28d9,stroke-width:1.5px,color:#1e1b4b
-    classDef mainNode fill:#f0fdf4,stroke:#15803d,stroke-width:2px,color:#052e16
-    class owner ownerNode
-    class lead,lines sessionNode
-    class release releaseNode
-    class builder,reviewer helperNode
-    class board boardNode
-    class main mainNode
-    style dev fill:transparent,stroke:#0369a1,stroke-width:1px,stroke-dasharray:4 4
-    style helpers fill:transparent,stroke:#71717a,stroke-width:1px,stroke-dasharray:4 4
-```
-
-Roles are responsibilities, not processes. One session may hold several roles in a small
-project; in a larger one any role can run as several parallel sessions (many lines,
-builders and reviewers at once; several leads split by area; several release sessions that
-take turns on the main branch through a claim). A project can also add its own roles, such
-as tester, documentation or security audit, as long as they keep the reserved powers
-intact: only the owner approves and only the release role (or the role the project names
-for that work) moves the main branch
-([PROTOCOL.md 2.1](PROTOCOL.md#21-parallel-sessions-and-project-roles)). The roles, and
-which tool runs each one, are listed in a table in the project's `AGENTS.md`. The roles
-and permissions are defaults: a project may rename, combine or leave out roles and change
-who may do what, and add their own message types, in the same file, approved the way the
-project chose at setup (by default proposals go through the lead to the owner); approvals, the single
-session that moves the main branch and independent review stay as they are
-([PROTOCOL.md 2.2](PROTOCOL.md#22-customizing-roles-and-permissions)).
-
-## How agents talk
-
-Every agent that can run git can use the **coordination branch**: an orphan branch in the
-project's own repository, never merged.
-
-```
-status/<line>.md                            one file per line, changed only by that line
-messages/<UTC timestamp>_<from>_<type>.md   one file per message, never changed after push
-claims/<task-slug>.md                       who is doing which task, with a lease
-decisions/<YYYY-MM-DD>_<topic>.md           owner decisions and standing authorizations
-```
-
-A whole line can also move to another agent or machine: the giving session pushes
-everything and leaves a `transfer` handover addressed to its own line name, and the
-receiving session, under the same name, reads it first and checks every branch SHA.
-
-When a session joins, its status file describes its environment (tool, model, a machine
-label, sandbox and network access, what it can and cannot run, how a new message wakes it,
-whether it can push the coordination branch, whether the owner is usually present, the
-git identity it commits under: by default its line name) and it
-announces itself to all, so the others know what to hand it. Messages are new files, so they never conflict. Each line keeps a `Last-read` pointer in its
-status file and advances it only after acting on a message, so an interrupted session redoes
-work instead of losing it. Agents without push notifications poll with `inbox.sh`, which
-makes no model call and exits 1 when there is nothing new, or run `watch.sh`, which prints
-one line per new message (one summary line when more than three arrive at once) for a
-tool that turns output into a notification.
-
-```sh
-scripts/init-coordination.sh                 # once per project
-scripts/inbox.sh --show api                  # unread messages for line "api"
-scripts/watch.sh --once api                  # print what is new (or wait for it), then exit
-scripts/send.sh --template handover > m.md   # fill it in, then:
-scripts/send.sh m.md
-scripts/send.sh --allow-secret m.md          # only if a refused value is not a secret
-scripts/mark-read.sh api <message-file>      # after handling it
-scripts/claim.sh --hours 4 api fix-login     # exit 1: someone else has it
-scripts/status.sh --all
-scripts/doctor.sh                            # layout, immutable messages, stale claims
-scripts/decide.sh <topic> decision.md        # record an owner decision
-scripts/verify.sh decisions/<file>           # is this approval really signed by the owner?
-```
-
-Tools that have their own messaging between sessions can use it for speed, but handovers,
-release requests and their answers are still written to the branch.
 
 ## Tests
 

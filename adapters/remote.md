@@ -121,7 +121,9 @@ The runner is a long-running process: the owner approves how it runs (PROTOCOL.m
 A service starts after a reboot, but it needs unattended git and tool access as well;
 If a runner or watcher stopped without cleaning up, its lock in the git directory
 (`map-runner-<line>.lock` or `map-watch-<line>.lock`) is treated as stale once its process
-is gone or runs another program; when a script still refuses, it names the lock and the
+is gone or its command line (`ps -o args`) does not contain the word its `holder` file
+names (`runner.sh`, `watch.sh`, or another tool that takes the lock, such as mapc; without
+the file, the script's own name); when a script still refuses, it names the lock and the
 command that removes it. check the log after the first restart. Record the choice in the status file
 (`Wake: runner`) and in the log the owner keeps for machine changes, with how to undo it.
 

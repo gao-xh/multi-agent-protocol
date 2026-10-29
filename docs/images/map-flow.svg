@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 890 496" width="890" height="496" role="img" aria-labelledby="title desc">
+  <title id="title">How a feature moves through a MAP team</title>
+  <desc id="desc">You give the lead a goal. The lead hands work to line data (Codex) and line fit (Claude Code); data hands its loader to fit at an exact commit. The lead sends a review packet for that commit to a reviewer that did not build it, and the reviewer reports its findings to the lead. Fit sends a release-request that names the review; the release role merges into main after the checks pass on that commit and reports back to the lead. You approve tags and publishing. Every arrow is a file on the coordination branch.</desc>
+  <style>
+    svg { --text: #1f2328; --muted: #59636e; --node: #f6f8fa; --node-line: #d0d7de;
+          --agent: #ddf4ff; --agent-line: #54aeff; --owner: #fff8c5; --owner-line: #d4a72c;
+          --main: #dafbe1; --main-line: #4ac26b; --arrow: #59636e; --band: #f6f8fa; }
+    @media (prefers-color-scheme: dark) {
+      svg { --text: #e6edf3; --muted: #9198a1; --node: #151b23; --node-line: #3d444d;
+            --agent: #0c2d6b; --agent-line: #4493f8; --owner: #3b2e00; --owner-line: #bb8009;
+            --main: #04260f; --main-line: #2ea043; --arrow: #9198a1; --band: #151b23; }
+    }
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: var(--text); }
+    .name { font-size: 15px; font-weight: 600; }
+    .tool { font-size: 12px; fill: var(--muted); }
+    .label { font-size: 11px; fill: var(--muted); }
+    .node { fill: var(--node); stroke: var(--node-line); stroke-width: 1.2; }
+    .agent { fill: var(--agent); stroke: var(--agent-line); stroke-width: 1.2; }
+    .owner { fill: var(--owner); stroke: var(--owner-line); stroke-width: 1.2; }
+    .main { fill: var(--main); stroke: var(--main-line); stroke-width: 1.2; }
+    .arrow { fill: none; stroke: var(--arrow); stroke-width: 1.5; }
+    .approval { fill: none; stroke: var(--owner-line); stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .head { fill: var(--arrow); }
+    .owner-head { fill: var(--owner-line); }
+    .band { fill: var(--band); stroke: var(--node-line); stroke-width: 1.2; stroke-dasharray: 5 4; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+  </style>
+  <defs>
+    <marker id="head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="head" d="M0,0 L10,5 L0,10 z"/>
+    </marker>
+    <marker id="owner-head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="owner-head" d="M0,0 L10,5 L0,10 z"/>
+    </marker>
+  </defs>
+
+  <!-- Nodes -->
+  <rect class="owner" x="20" y="182" width="110" height="56" rx="28"/>
+  <text class="name" x="75" y="207" text-anchor="middle">You</text>
+  <text class="tool" x="75" y="224" text-anchor="middle">owner</text>
+
+  <rect class="node" x="190" y="182" width="120" height="56" rx="8"/>
+  <text class="name" x="250" y="207" text-anchor="middle">lead</text>
+  <text class="tool" x="250" y="224" text-anchor="middle">Claude Code</text>
+
+  <rect class="node" x="190" y="40" width="120" height="56" rx="8"/>
+  <text class="name" x="250" y="65" text-anchor="middle">reviewer</text>
+  <text class="tool" x="250" y="82" text-anchor="middle">did not build it</text>
+
+  <rect class="agent" x="380" y="50" width="150" height="60" rx="8"/>
+  <text class="name" x="455" y="76" text-anchor="middle">line data</text>
+  <text class="tool" x="455" y="94" text-anchor="middle">Codex</text>
+
+  <rect class="agent" x="380" y="250" width="150" height="60" rx="8"/>
+  <text class="name" x="455" y="276" text-anchor="middle">line fit</text>
+  <text class="tool" x="455" y="294" text-anchor="middle">Claude Code</text>
+
+  <rect class="node" x="630" y="250" width="140" height="56" rx="8"/>
+  <text class="name" x="700" y="275" text-anchor="middle">release</text>
+  <text class="tool" x="700" y="292" text-anchor="middle">one role</text>
+
+  <rect class="main" x="800" y="250" width="70" height="56" rx="8"/>
+  <text class="name" x="835" y="283" text-anchor="middle">main</text>
+
+  <!-- Owner to lead -->
+  <path class="arrow" d="M130,210 L188,210" marker-end="url(#head)"/>
+  <text class="label" x="160" y="190" text-anchor="middle">goal,</text>
+  <text class="label" x="160" y="203" text-anchor="middle">answers</text>
+
+  <!-- Lead and reviewer -->
+  <path class="arrow" d="M232,182 L232,98" marker-end="url(#head)"/>
+  <text class="label" x="224" y="136" text-anchor="end">review packet:</text>
+  <text class="label" x="224" y="150" text-anchor="end">branch at a SHA</text>
+  <path class="arrow" d="M268,96 L268,180" marker-end="url(#head)"/>
+  <text class="label" x="276" y="136">review of</text>
+  <text class="label" x="276" y="150">that SHA</text>
+
+  <!-- Lead to the lines -->
+  <path class="arrow" d="M310,198 C345,198 345,80 378,80" marker-end="url(#head)"/>
+  <text class="label" x="352" y="160">handover</text>
+  <path class="arrow" d="M310,222 C345,222 345,280 378,280" marker-end="url(#head)"/>
+  <text class="label" x="352" y="240">handover</text>
+
+  <!-- Data to fit -->
+  <path class="arrow" d="M455,110 L455,248" marker-end="url(#head)"/>
+  <text class="label" x="463" y="172">handover:</text>
+  <text class="label" x="463" y="186">loader at a SHA</text>
+
+  <!-- Release path -->
+  <path class="arrow" d="M530,280 L628,280" marker-end="url(#head)"/>
+  <text class="label" x="579" y="258" text-anchor="middle">release-request</text>
+  <text class="label" x="579" y="271" text-anchor="middle">names the review</text>
+  <path class="arrow" d="M770,278 L798,278" marker-end="url(#head)"/>
+  <text class="label" x="800" y="330" text-anchor="middle">checks pass</text>
+  <text class="label" x="800" y="344" text-anchor="middle">on that SHA</text>
+  <path class="arrow" d="M670,306 L670,372 L250,372 L250,240" marker-end="url(#head)"/>
+  <text class="label" x="460" y="366" text-anchor="middle">released</text>
+
+  <!-- Owner approvals -->
+  <path class="approval" d="M75,238 L75,396 L730,396 L730,308" marker-end="url(#owner-head)"/>
+  <text class="label" x="400" y="412" text-anchor="middle">you approve tags and publishing</text>
+
+  <!-- Coordination branch -->
+  <rect class="band" x="20" y="426" width="850" height="56" rx="10"/>
+  <text class="name" x="40" y="450">coordination branch</text>
+  <text class="tool" x="40" y="469">in your own repository; every solid arrow above is a file on it:</text>
+  <text class="mono" x="460" y="469">status/  claims/  messages/  decisions/</text>
+</svg>

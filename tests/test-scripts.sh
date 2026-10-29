@@ -3,6 +3,8 @@
 # Usage: tests/test-scripts.sh [shell]   (default: sh; for example: tests/test-scripts.sh dash)
 # Leaves nothing behind: everything lives in a temp directory that is removed at exit.
 set -u
+# A line name from the caller's session would change what the scripts do here.
+unset MAP_LINE
 test_shell=${1:-sh}
 repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 scripts="${repo_root}/scripts"
@@ -52,6 +54,25 @@ check "init is idempotent" run init-coordination.sh
 check "doctor passes on a fresh branch" run doctor.sh
 check "layout has four folders" sh -c 'git ls-tree --name-only origin/coordination | tr "\n" " " | grep -q "README.md claims decisions messages status"'
 check "development branch is untouched" sh -c '[ "$(git rev-parse --abbrev-ref HEAD)" = main ] && [ -z "$(git status --porcelain)" ]'
+check "doctor reports no sandbox problem in a writable clone" sh -c "! '$test_shell' '${scripts}/doctor.sh' | grep -q 'adapters/codex.md'"
+
+# A session that cannot write its git directory or reach the remote (a sandbox, adapters/codex.md).
+sandbox_clone="${work}/sandbox"
+git clone --quiet "${work}/remote.git" "$sandbox_clone"
+(cd "$sandbox_clone" && "$test_shell" "${scripts}/doctor.sh" >/dev/null 2>&1)
+chmod a-w "${sandbox_clone}/.git"
+if (: >"${sandbox_clone}/.git/write-probe") 2>/dev/null; then
+    rm -f "${sandbox_clone}/.git/write-probe"
+    skip "read-only git directory: this user can write it anyway (root?)"
+else
+    check_status "doctor reports a read-only git directory as an error" 1 sh -c "cd '$sandbox_clone' && '$test_shell' '${scripts}/doctor.sh' --no-fetch"
+    check "doctor names the git directory and adapters/codex.md" sh -c "cd '$sandbox_clone' && '$test_shell' '${scripts}/doctor.sh' --no-fetch | grep -q '^ERROR    cannot write the git directory /.*/sandbox/.git: .*see adapters/codex.md (sandbox writable roots)\$'"
+    check_status "doctor does not fetch into a read-only git directory and exits 1" 1 sh -c "cd '$sandbox_clone' && '$test_shell' '${scripts}/doctor.sh'"
+fi
+chmod u+w "${sandbox_clone}/.git"
+git -C "$sandbox_clone" remote set-url origin "${work}/no-such-remote.git"
+check "doctor warns when the remote does not answer" sh -c "cd '$sandbox_clone' && '$test_shell' '${scripts}/doctor.sh' 2>/dev/null | grep -q \"^WARNING  the remote 'origin' did not answer: no network or no access; see adapters/codex.md section 2\\$\""
+check "doctor --no-fetch does not contact the remote" sh -c "cd '$sandbox_clone' && '$test_shell' '${scripts}/doctor.sh' --no-fetch && ! '$test_shell' '${scripts}/doctor.sh' --no-fetch | grep -q 'did not answer'"
 
 # Status files.
 sed -e 's/<line>/lead/' -e 's/<lead \/ line \/ release \/ liaison \/ relay>/lead/' -e 's/<branch>/lead\/demo/' "${repo_root}/templates/status.md" >"${work}/lead-status.md"
@@ -60,6 +81,34 @@ check "status gets Last-read none" sh -c "'$test_shell' '${scripts}/status.sh' l
 cd "${work}/api" || exit 2
 sed -e 's/<line>/api/' "${repo_root}/templates/status.md" >"${work}/api-status.md"
 check "api publishes its status" run status.sh api "${work}/api-status.md"
+# Detected environment facts (status.sh): only into empty, placeholder or detected fields.
+git show origin/coordination:status/api.md >"${work}/api-published.md"
+check "status.sh detects Toolchain on a fresh template" grep -q '^- Toolchain: git [0-9][^;]*; sh: [a-z].* (detected by status.sh)$' "${work}/api-published.md"
+check "status.sh detects an own clone" grep -qx -- '- Checkout: own clone (detected by status.sh)' "${work}/api-published.md"
+check "status.sh fills in the operating system after the label placeholder" grep -q '^- Machine: <label[^;]*>; .*, [A-Za-z0-9_]* (detected by status.sh)$' "${work}/api-published.md"
+# Only the detected text (in Machine, what follows the label), matched as whole words.
+sed -n -e 's/^- Machine: [^;]*; \(.*\) (detected by status.sh)$/\1/p' -e 's/^- [A-Za-z]*: \(.*\) (detected by status.sh)$/\1/p' "${work}/api-published.md" | sort -u >"${work}/api-detected.txt"
+check "detected facts name no host, user or home" sh -c "[ -s '${work}/api-detected.txt' ] && ! grep -F -w -e \"\$(uname -n)\" -e \"\${USER:-no-user-set}\" '${work}/api-detected.txt' && ! grep -F -e \"\$HOME\" '${work}/api-detected.txt'"
+sed -e 's/<line>/detect-own/' -e 's/^- Toolchain:.*/- Toolchain: Python 3.11 from the lab image/' -e 's/^- Machine:.*/- Machine: lab-box; Ubuntu 24.04/' -e 's/^- Checkout:.*/- Checkout: cloud container/' "${repo_root}/templates/status.md" >"${work}/detect-own.md"
+run status.sh detect-own "${work}/detect-own.md" >/dev/null 2>&1
+check "status.sh keeps the agent's own Toolchain, Machine and Checkout" sh -c "git show origin/coordination:status/detect-own.md >'${work}/detect-own.out' && grep -qx -- '- Toolchain: Python 3.11 from the lab image' '${work}/detect-own.out' && grep -qx -- '- Machine: lab-box; Ubuntu 24.04' '${work}/detect-own.out' && grep -qx -- '- Checkout: cloud container' '${work}/detect-own.out'"
+sed -e 's/<line>/detect-again/' -e 's/^- Toolchain:.*/- Toolchain: git 0.0 (detected by status.sh)/' -e 's/^- Machine:.*/- Machine: laptop; OldOS 1, x (detected by status.sh)/' "${repo_root}/templates/status.md" >"${work}/detect-again.md"
+run status.sh detect-again "${work}/detect-again.md" >/dev/null 2>&1
+check "status.sh replaces facts it detected before and keeps the label" sh -c "git show origin/coordination:status/detect-again.md >'${work}/detect-again.out' && ! grep -q 'git 0.0\|OldOS' '${work}/detect-again.out' && grep -q '^- Machine: laptop; .* (detected by status.sh)\$' '${work}/detect-again.out'"
+sed -e 's/<line>/detect-off/' "${repo_root}/templates/status.md" >"${work}/detect-off.md"
+env MAP_STATUS_DETECT=0 "$test_shell" "${scripts}/status.sh" detect-off "${work}/detect-off.md" >/dev/null 2>&1
+check "MAP_STATUS_DETECT=0 detects nothing" sh -c "git show origin/coordination:status/detect-off.md | grep -q '^- Toolchain: <' && ! git show origin/coordination:status/detect-off.md | grep -q '(detected by status.sh)\$'"
+sed -e 's/<line>/detect-other/' "${repo_root}/templates/status.md" >"${work}/detect-other.md"
+check "status.sh does not detect for another line's status" sh -c "MAP_LINE=api '$test_shell' '${scripts}/status.sh' detect-other '${work}/detect-other.md' 2>&1 | grep -q \"not detecting environment facts: this worktree belongs to line 'api', not 'detect-other'\" && git show origin/coordination:status/detect-other.md | grep -q '^- Toolchain: <' && ! git show origin/coordination:status/detect-other.md | grep -q '(detected by status.sh)\$'"
+check "status.sh detects for the worktree's own line" sh -c "sed -e 's/<line>/api/' '${repo_root}/templates/status.md' >'${work}/api-again.md' && MAP_LINE=api '$test_shell' '${scripts}/status.sh' api '${work}/api-again.md' >/dev/null 2>&1 && git show origin/coordination:status/api.md | grep -q '^- Checkout: own clone (detected by status.sh)'"
+sed -e 's/<line>/detect-heading/' -e 's/^## Environment$/## Environment (PROTOCOL.md 5.5)/' "${repo_root}/templates/status.md" >"${work}/detect-heading.md"
+run status.sh detect-heading "${work}/detect-heading.md" >/dev/null 2>&1
+check "status.sh detects under an Environment heading with a note" sh -c "git show origin/coordination:status/detect-heading.md | grep -q '^- Checkout: own clone (detected by status.sh)'"
+git worktree add --quiet --detach "${work}/api-worktree" >"${work}/detect-wt.out" 2>&1
+sed -e 's/<line>/detect-wt/' "${repo_root}/templates/status.md" >"${work}/detect-wt.md"
+(cd "${work}/api-worktree" && "$test_shell" "${scripts}/status.sh" detect-wt "${work}/detect-wt.md" >>"${work}/detect-wt.out" 2>&1)
+check "status.sh detects a git worktree" sh -c "git show origin/coordination:status/detect-wt.md | grep -qx -- '- Checkout: git worktree (detected by status.sh)' || { cat '${work}/detect-wt.out'; git show origin/coordination:status/detect-wt.md | grep -i checkout; exit 1; }"
+git worktree remove --force "${work}/api-worktree" 2>/dev/null
 
 # Messages.
 check_status "api inbox is empty" 1 run inbox.sh api
@@ -70,6 +119,28 @@ printf 'type: heads-up\nfrom: lead\nto: all\n\n- Change: config key renamed\n' >
 check "lead sends a heads-up to all" run send.sh "${work}/heads-up.md"
 printf 'type: question\nfrom: lead\nto: release\n\nWhich tag?\n' >"${work}/question.md"
 check "lead sends a question to release" run send.sh "${work}/question.md"
+# Receivers that cannot be woken get a notice on stderr (PROTOCOL.md 5.5).
+sed -e 's/<line>/wake-placeholder/' "${repo_root}/templates/status.md" >"${work}/wake-status.md"
+run status.sh wake-placeholder "${work}/wake-status.md" >/dev/null 2>&1
+for wake_case in "wake-none:none while idle" "wake-hook:Session-start hook only" "wake-hook2:session start hook only" "wake-monitor:monitor (watch.sh in the Claude Code plugin)" "wake-runner:runner (scripts/runner.sh starts the agent)"; do
+    sed -e "s/<line>/${wake_case%%:*}/" -e "s|^- Wake:.*|- Wake: ${wake_case#*:}|" "${repo_root}/templates/status.md" >"${work}/wake-status.md"
+    run status.sh "${wake_case%%:*}" "${work}/wake-status.md" >/dev/null 2>&1
+done
+printf 'type: question\nfrom: lead\nto: wake-none, wake-hook, wake-hook2, wake-monitor, wake-runner, wake-placeholder, wake-nostatus, wake-none\n\nAre you there?\n' >"${work}/wake.md"
+check "send to unwakeable receivers succeeds and prints the path" sh -c "'$test_shell' '${scripts}/send.sh' '${work}/wake.md' >'${work}/wake.out' 2>'${work}/wake.err' && grep -q '^messages/.*_lead_question.md\$' '${work}/wake.out' && [ \"\$(wc -l <'${work}/wake.out')\" -eq 1 ]"
+check "send notices a receiver with Wake none, once" sh -c "[ \"\$(grep -c '^send.sh: notice: wake-none cannot be woken (Wake: none while idle); tell it directly or tell the owner (PROTOCOL.md 5.5)\$' '${work}/wake.err')\" -eq 1 ]"
+check "send notices a receiver woken only by a session-start hook" grep -q '^send.sh: notice: wake-hook cannot be woken (Wake: Session-start hook only)' "${work}/wake.err"
+printf 'type: question\nfrom: lead\nto: result-test, result-other\n\nResult?\n' >"${work}/result.md"
+check "send --result exits 0" sh -c "'$test_shell' '${scripts}/send.sh' --result '${work}/result.md' >'${work}/result.out' 2>/dev/null"
+result_path=$(sed -n 's/^path: //p' "${work}/result.out")
+check "send --result prints the keys in order" sh -c "[ \"\$(cut -d: -f1 '${work}/result.out' | tr '\n' ' ')\" = 'map-send-result path event commit to type ' ] && grep -qx 'map-send-result: 1' '${work}/result.out'"
+check "send --result names the message, its event and the header values" sh -c "case '$result_path' in messages/*_lead_question.md) ;; *) exit 1 ;; esac && git show 'origin/coordination:$result_path' >/dev/null && grep -qx \"event: \$(basename '$result_path' .md)\" '${work}/result.out' && grep -qx 'to: result-test, result-other' '${work}/result.out' && grep -qx 'type: question' '${work}/result.out'"
+check "send --result names the coordination commit that added the message" sh -c "commit=\$(sed -n 's/^commit: //p' '${work}/result.out') && [ \${#commit} -eq 40 ] && [ \"\$(git diff-tree --no-commit-id --name-only -r \"\$commit\")\" = '$result_path' ] && git merge-base --is-ancestor \"\$commit\" origin/coordination"
+check_status "send --result keeps the exit status of a refused message" 2 sh -c "printf 'type: chat\nfrom: lead\nto: api\n\nhi\n' >'${work}/bad.md' && '$test_shell' '${scripts}/send.sh' --result '${work}/bad.md'"
+check "send --result prints nothing on stdout for a refused message" sh -c "[ -z \"\$('$test_shell' '${scripts}/send.sh' --result '${work}/bad.md' 2>/dev/null)\" ]"
+check "send --result works after --strict" sh -c "printf 'type: question\nfrom: lead\nto: result-test\n\nAgain?\n' >'${work}/result2.md' && '$test_shell' '${scripts}/send.sh' --strict --result '${work}/result2.md' | grep -qx 'map-send-result: 1'"
+check "send notices a session start hook written without the hyphen" grep -q '^send.sh: notice: wake-hook2 cannot be woken' "${work}/wake.err"
+check "send gives no notice for a monitor, a runner, a placeholder or a missing status" sh -c "! grep -Eq 'wake-(monitor|runner|placeholder|nostatus)' '${work}/wake.err'"
 check "the review template is available" sh -c "'$test_shell' '${scripts}/send.sh' --template review | grep -q '^type: review'"
 sed -e 's/^from:.*/from: lead/' -e 's/^to:.*/to: rev-target/' -e 's/^refs:.*/refs:/' -e 's/<branch or artifact> at <SHA>/lead\/demo at abc123/' -e 's/^Earlier findings:.*/Earlier findings: none/' -e 's/^- <observation>.*/- none/' -e 's/^- \.\.\./- none/' "${repo_root}/templates/review.md" >"${work}/review.md"
 check "send accepts a review in strict mode" run send.sh --strict "${work}/review.md"
@@ -330,7 +401,11 @@ check_status "doctor reports the edited message" 1 run doctor.sh
 
 # Session-start summary and line names.
 check "session-start is silent without a line" sh -c "[ -z \"\$('$test_shell' '${scripts}/session-start.sh')\" ]"
+check "doctor warns about an unmarked checkout" sh -c "'$test_shell' '${scripts}/doctor.sh' --no-fetch | grep -q \"^WARNING  this checkout is not marked as any line's; run scripts/set-line.sh <line> (PROTOCOL.md 5.5)\\$\""
+check "doctor accepts MAP_LINE without a mark" sh -c "! MAP_LINE=api '$test_shell' '${scripts}/doctor.sh' --no-fetch | grep -q 'not marked as any line'"
 check "set-line stores the line name" run set-line.sh api
+check "doctor accepts a marked checkout" sh -c "! '$test_shell' '${scripts}/doctor.sh' --no-fetch | grep -q 'not marked as any line\|^NOTE'"
+check "doctor notes MAP_LINE and a mark that differ" sh -c "MAP_LINE=other '$test_shell' '${scripts}/doctor.sh' --no-fetch | grep -q \"^NOTE     MAP_LINE is 'other' but this checkout is marked as line 'api' (set-line.sh); MAP_LINE wins\\$\""
 check "set-line prints it back" sh -c "[ \"\$('$test_shell' '${scripts}/set-line.sh' 2>/dev/null)\" = api ]"
 check "session-start reports unread messages" sh -c "'$test_shell' '${scripts}/session-start.sh' | grep -q 'unread coordination message'"
 check "session-start --json prints one JSON line" sh -c "out=\$(MAP_LINE=api '$test_shell' '${scripts}/session-start.sh' --json) && [ \"\$(printf '%s\n' \"\$out\" | wc -l | tr -d ' ')\" = 1 ] && printf '%s\n' \"\$out\" | grep -q '^{\"additionalContext\": \"Multi-Agent Protocol: this session is line \\\\\"api\\\\\".*\"}\$'"
@@ -368,6 +443,7 @@ check "watch announces it once" test "$(grep -c . "${work}/live.out")" = 1
 watch --rounds 4 --interval 1 obs >"${work}/lock-first.out" 2>&1 &
 first_watcher=$!
 sleep 1
+check "the watcher writes holder watch.sh into its lock" sh -c "[ \"\$(cat '$(git rev-parse --git-dir)/map-watch-obs.lock/holder')\" = watch.sh ]"
 check "a second watcher for the line exits 0 and says why" sh -c "'$test_shell' '${scripts}/watch.sh' --rounds 1 --interval 1 obs | grep -q 'another session already watches line obs in this worktree'"
 check "a watcher for another line is not blocked" sh -c "! '$test_shell' '${scripts}/watch.sh' --rounds 1 --interval 1 obs2 | grep -q 'already watches'"
 wait "$first_watcher"
@@ -384,6 +460,26 @@ printf '%s\n' "$reused_pid" >"$(git rev-parse --git-dir)/map-watch-obs.lock/pid"
 check "a lock held by a reused PID is taken over" sh -c "out=\$('$test_shell' '${scripts}/watch.sh' --rounds 1 --interval 1 obs 2>&1) && ! printf '%s\n' \"\$out\" | grep -q 'already watches'"
 check "the reused-PID lock is gone afterwards" test ! -e "$(git rev-parse --git-dir)/map-watch-obs.lock"
 check "lock_holder_alive: a live PID that runs another program is no holder" sh -c ". '${scripts}/lib.sh' && ! lock_holder_alive $reused_pid runner.sh && lock_holder_alive $reused_pid sleep"
+# A holder file names the program that holds the lock (for example mapc).
+holder_lock="${work}/holder-test.lock"
+mkdir "$holder_lock"
+printf 'sleep\r\n' >"${holder_lock}/holder"
+check "lock_holder_alive: a holder that matches the process is alive" sh -c ". '${scripts}/lib.sh' && lock_holder_alive $reused_pid runner.sh '$holder_lock'"
+printf '  sleep \t\n' >"${holder_lock}/holder"
+check "lock_holder_alive: blanks around the holder are ignored" sh -c ". '${scripts}/lib.sh' && lock_holder_alive $reused_pid runner.sh '$holder_lock'"
+printf 'mapc\n' >"${holder_lock}/holder"
+check "lock_holder_alive: a holder that does not match the process is not alive" sh -c ". '${scripts}/lib.sh' && ! lock_holder_alive $reused_pid sleep '$holder_lock'"
+for bad_holder in 'sle ep' 'sleep;x' 's*' '' 'sl'; do
+    printf '%s\n' "$bad_holder" >"${holder_lock}/holder"
+    check "lock_holder_alive: an invalid holder '${bad_holder}' is not alive" sh -c ". '${scripts}/lib.sh' && ! lock_holder_alive $reused_pid sleep '$holder_lock'"
+done
+rm -f "${holder_lock}/holder"
+check "lock_holder_alive: without a holder file the given name is used" sh -c ". '${scripts}/lib.sh' && lock_holder_alive $reused_pid sleep '$holder_lock' && ! lock_holder_alive $reused_pid runner.sh '$holder_lock'"
+mkdir "$(git rev-parse --git-dir)/map-watch-obs.lock"
+printf '%s\n' "$reused_pid" >"$(git rev-parse --git-dir)/map-watch-obs.lock/pid"
+printf 'sleep\n' >"$(git rev-parse --git-dir)/map-watch-obs.lock/holder"
+check "watch respects a lock whose holder names the live process" sh -c "'$test_shell' '${scripts}/watch.sh' --rounds 1 --interval 1 obs | grep -q 'another session already watches line obs'"
+rm -rf "$(git rev-parse --git-dir)/map-watch-obs.lock"
 kill "$reused_pid" 2>/dev/null
 wait "$reused_pid" 2>/dev/null
 
@@ -827,6 +923,7 @@ runner_pid=$!
 sleep 2
 check "the first runner waits for messages" kill -0 "$runner_pid"
 check_status "a second runner for the line exits 2" 2 run runner.sh --max-runs 1 --interval 1 worker -- true
+check "the runner writes holder runner.sh into its lock" sh -c "[ \"\$(cat '$(git rev-parse --git-dir)/map-runner-worker.lock/holder')\" = runner.sh ]"
 check "a second runner names the lock and how to clear it" sh -c "'$test_shell' '${scripts}/runner.sh' --max-runs 1 --interval 1 worker -- true 2>&1 | grep -q \"rm -rf '.*map-runner-worker.lock'\""
 check "the first runner has not started the agent yet" test ! -e "${work}/agent-prompts"
 printf 'type: handover\nfrom: lead\nto: worker\n\n## Goal\n\nRunner test.\n' >"${work}/to-worker.md"

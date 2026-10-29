@@ -73,7 +73,8 @@ Answer me in the language I write in.
    - sandbox and network access; what you can and cannot run (try the project's checks
      from the rules file if they are cheap);
    - how a new message wakes you: start from your tool's row in adapters/README.md and
-     confirm it;
+     confirm it. If your tool can be woken, arm it whenever you wait for an answer
+     (PROTOCOL.md 5.5); "none" is only for tools that cannot be woken;
    - whether I am usually present in this session;
    - the tools and plugins you need, without installing anything, each as found (with
      its version), missing, or cannot check: git and a POSIX sh; ssh-keygen if the
@@ -112,9 +113,12 @@ Answer me in the language I write in.
    a builder whose line reports for you.
 
 7. Announce yourself: scripts/send.sh --template joined, fill it in and send it to all
-   (pending: to the lead, saying what you can do and asking to be registered). Store your
-   line name with scripts/set-line.sh <line> so that later sessions start with an inbox
-   summary, and run scripts/doctor.sh.
+   (pending: to the lead, saying what you can do and asking to be registered). Then run
+   scripts/set-line.sh <line> in every checkout this line works in: the one you joined
+   from, each further clone or worktree, including worktrees that a desktop app creates,
+   and again in a new checkout after a transfer. It marks the checkout as this line's,
+   so later sessions start with an inbox summary and tools can find the checkout
+   (PROTOCOL.md 5.5). Then run scripts/doctor.sh.
 
 8. Report to me in a few lines: your line, role and area; what you can and cannot do; the
    unread messages in your inbox (scripts/inbox.sh <line>); and what you will do next.

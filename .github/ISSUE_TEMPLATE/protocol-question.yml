@@ -1,0 +1,22 @@
+name: Protocol question or proposal
+description: A rule is unclear, missing or wrong in practice
+labels: [protocol]
+body:
+  - type: input
+    id: section
+    attributes:
+      label: Section
+      placeholder: PROTOCOL.md 5.6 Claims
+    validations:
+      required: true
+  - type: textarea
+    id: situation
+    attributes:
+      label: What happened
+      description: What your agents (or you) did, and which tools they ran in.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would change, if anything

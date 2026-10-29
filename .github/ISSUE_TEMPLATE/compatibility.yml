@@ -1,0 +1,22 @@
+name: Compatibility report
+description: A tool or orchestrator that reads or writes the coordination branch
+labels: [compatibility]
+body:
+  - type: input
+    id: tool
+    attributes:
+      label: Your tool
+      description: Name and link, and the MAP version you test against
+    validations:
+      required: true
+  - type: textarea
+    id: relies-on
+    attributes:
+      label: What you rely on
+      description: Message headers, file layout, script options, output or exit codes
+    validations:
+      required: true
+  - type: textarea
+    id: issue
+    attributes:
+      label: What broke or is unclear

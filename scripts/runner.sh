@@ -37,6 +37,10 @@
 # One runner per line and worktree (a lock in the git directory); a session that already
 # watches the line here (the Claude Code plugin monitor) also blocks it. Each run, with the
 # agent's output and exit status, is appended to <git dir>/map-runner-<line>.log.
+# The lock is the directory <git dir>/map-runner-<line>.lock with the files pid (the
+# holder's PID) and holder (the holder program's name, "runner.sh"; another program that
+# takes the lock, such as mapc, writes a distinctive word that appears in its own command
+# line, ps -o args; scripts before 2.1.0 ignore the file and see such a lock as stale).
 # Stop it with Ctrl-C or by killing its PID; it stops a running agent first.
 set -u
 PROG=runner.sh
@@ -64,7 +68,7 @@ while [ $# -gt 0 ]; do
         --allow-flag) [ $# -ge 2 ] || die "--allow-flag needs the agent's option"; allow_flag=$2; shift ;;
         --progress) [ $# -ge 2 ] || die "--progress needs a number of seconds"; progress=$2; shift ;;
         --wake-on-all) wake_on_all=1 ;;
-        -h | --help) sed -n '2,39s/^# \{0,1\}//p' "$0"; exit 0 ;;
+        -h | --help) sed -n '2,44s/^# \{0,1\}//p' "$0"; exit 0 ;;
         -*) die "unknown option '$1'" ;;
         *) [ -z "$line" ] || die "usage: runner.sh [options] <line> -- <agent command...>"; line=$1 ;;
     esac
@@ -87,17 +91,18 @@ run_out="${git_dir}/map-runner-${line}.out"
 progress_file="${git_dir}/map-runner-${line}.progress"
 fetch_seconds=${MAP_FETCH_SECONDS:-10}
 
-# One runner per line and worktree: the lock holds the runner's PID; stale when it is gone
-# or no longer runs runner.sh (a reused PID).
+# One runner per line and worktree: the lock holds the runner's PID and the holder's
+# name; stale when the PID is gone or no longer runs that program (a reused PID).
 lock="${git_dir}/map-runner-${line}.lock"
 if ! mkdir "$lock" 2>/dev/null; then
     holder=$(cat "${lock}/pid" 2>/dev/null)
-    if [ -n "$holder" ] && lock_holder_alive "$holder" runner.sh; then
+    if [ -n "$holder" ] && lock_holder_alive "$holder" runner.sh "$lock"; then
         die "a runner for line ${line} already runs in this worktree (PID ${holder}, lock ${lock}); if no runner runs, remove the lock: rm -rf '${lock}'"
     fi
     rm -rf "$lock"
     mkdir "$lock" 2>/dev/null || die "cannot take the runner lock ${lock}"
 fi
+printf 'runner.sh\n' >"${lock}/holder"
 printf '%s\n' "$$" >"${lock}/pid"
 agent=""
 watcher=""

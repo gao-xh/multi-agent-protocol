@@ -4,7 +4,10 @@ Codex sessions take part like any other agent: through the project's `AGENTS.md`
 `coordination` branch. Nothing in the protocol depends on Claude Code.
 
 The Codex facts below were checked against OpenAI's Codex documentation on 2026-10-21
-(the developers.openai.com/codex pages now redirect to learn.chatgpt.com/docs). Codex
+(the developers.openai.com/codex pages now redirect to learn.chatgpt.com/docs). The sandbox
+settings of sections 2 and 3 were also confirmed in practice on 2026-10-28 with Codex CLI
+0.163 (`codex exec`, `workspace-write`): two Codex lines committed, pushed and sent
+messages from their own clones. Codex
 changes quickly; check the linked pages if something does not behave as described.
 
 ## 1. Rules: `AGENTS.md`
@@ -35,6 +38,11 @@ or for one run: `-c 'sandbox_workspace_write.network_access=true'`. See
 [approvals and security](https://learn.chatgpt.com/docs/agent-approvals-security). This is
 a configuration change on the owner's machine, so the owner decides (PROTOCOL.md 3.2).
 
+When the remote is a directory on the same machine (a bare repository used for a local
+test or a demo), no network access is needed, but that directory must be writable: add
+it with `--add-dir <dir>`. A remote on GitHub or another server always needs network
+access.
+
 ## 3. Starting a session with a role
 
 Use a clone of the project of its own for each Codex line, not a git worktree: in the
@@ -53,6 +61,20 @@ final message to stdout. Its default sandbox is read-only, so pass
 directory, with the two `-c` options above. `codex exec resume --last "<follow-up>"`
 continues the previous session. See
 [non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode).
+
+**When it goes wrong.** These symptoms mean that one of the settings above is missing, not
+that the protocol is broken:
+
+- `git fetch` or a coordination script fails with "Read-only file system", "Operation not
+  permitted" or "cannot lock ref" under `.git`: the clone's `.git` is not a writable root,
+  or the session runs in a git worktree whose git data lies outside the sandbox.
+- `git fetch` or `git push` fails with "Could not resolve host" or a network error: network
+  access is off (section 2).
+- `git commit` fails with "unable to create .git/index.lock": the same as the first case.
+
+Check this right after joining, before taking work: `git fetch origin` in the clone must
+succeed. `scripts/doctor.sh` checks both: an error when the session cannot write the
+clone's git directory, and a warning when the remote does not answer.
 
 ## 4. Checking the inbox on a timer
 

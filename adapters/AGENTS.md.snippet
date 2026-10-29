@@ -1,4 +1,4 @@
-<!-- multi-agent-protocol: begin v2.0 -->
+<!-- multi-agent-protocol: begin v2.1 -->
 ## Multi-agent collaboration
 
 Several AI agents work on this project in parallel for one owner. All of them follow the
@@ -84,6 +84,15 @@ advances `MAIN_BRANCH`". A renamed role keeps the default name in the `Role:` fi
 file (`Role: release`), so messages to that role still arrive. Only the session that does
 the release role's work advances `MAIN_BRANCH`, and parallel release sessions take turns
 with the claim `release-main`.
+
+#### Machines (optional)
+
+| Label | Model identifier | Architecture | Memory | GPU | Operating system |
+| --- | --- | --- | --- | --- | --- |
+| <e.g. laptop> | <e.g. Mac16,1> | <arm64 / x86_64> | <e.g. 32 GB> | <none / e.g. RTX 4090> | <e.g. macOS 26.6> |
+
+Status files name the label (`Machine:`). No host names, IP addresses, user names, serial
+numbers or hardware UUIDs.
 
 - Changes to roles, permissions and message types are approved: <through the lead (default:
   any session proposes to the lead, the lead asks the owner) | owner only | delegated to the

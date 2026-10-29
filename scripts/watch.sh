@@ -16,7 +16,10 @@
 # is set, and starts one interval late, after the session-start summary. It also exits
 # 0 when the branch does not exist.
 # One watcher per line and worktree: while one runs, another for the same line in the
-# same worktree prints one line saying so and exits 0 (a lock in the git directory).
+# same worktree prints one line saying so and exits 0 (a lock in the git directory:
+# <git dir>/map-watch-<line>.lock with the files pid and holder, the holder program's
+# name, "watch.sh"; another program that takes the lock writes a word from its own
+# command line, ps -o args; scripts before 2.1.0 ignore the file).
 set -u
 PROG=watch.sh
 # shellcheck source=lib.sh
@@ -33,7 +36,7 @@ while [ $# -gt 0 ]; do
         --once) once=1 ;;
         --rounds) [ $# -ge 2 ] || die "--rounds needs a number"; rounds=$2; shift ;;
         --interval) [ $# -ge 2 ] || die "--interval needs a number of seconds"; interval=$2; shift ;;
-        -h | --help) sed -n '2,19s/^# \{0,1\}//p' "$0"; exit 0 ;;
+        -h | --help) sed -n '2,22s/^# \{0,1\}//p' "$0"; exit 0 ;;
         -*) die "unknown option '$1'" ;;
         *) break ;;
     esac
@@ -64,10 +67,12 @@ fi
 
 # One watcher per line and worktree: a second session in the same worktree would act on
 # the same messages. The lock is a directory in this worktree's git directory holding the
-# watcher's PID; it is stale when that process is gone or no longer runs watch.sh.
+# watcher's PID and the holder's name; it is stale when that process is gone or no longer
+# runs the program that holder names (watch.sh without the file).
 lock="$(git rev-parse --git-dir)/map-watch-${line}.lock"
 take_lock() {
     mkdir "$lock" 2>/dev/null || return 1
+    printf 'watch.sh\n' >"${lock}/holder"
     printf '%s\n' "$$" >"${lock}/pid"
 }
 locked=0
@@ -81,7 +86,7 @@ for _ in 1 2 3; do
     # A watcher that has just made the directory may not have written its PID yet.
     [ -n "$holder" ] || { sleep 1; holder=$(cat "${lock}/pid" 2>/dev/null); }
     # A live PID that no longer runs watch.sh was reused by another program: stale.
-    if [ -n "$holder" ] && lock_holder_alive "$holder" watch.sh; then
+    if [ -n "$holder" ] && lock_holder_alive "$holder" watch.sh "$lock"; then
         printf 'Multi-Agent Protocol: another session already watches line %s in this worktree (PID %s); this watcher exits. Only that session acts as line %s here; if no session watches it, remove the lock: rm -rf '"'"'%s'"'"'\n' \
             "$line" "$holder" "$line" "$lock"
         exit 0

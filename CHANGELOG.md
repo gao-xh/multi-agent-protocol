@@ -14,6 +14,70 @@ The protocol, the scripts and the Claude Code plugin share one version number, f
 
 Major and minor releases are published first as release candidates (`vX.Y.0-rc.N`).
 
+## 2.1.0-rc.1 - 2026-10-29
+
+### Added
+
+- Status files: optional environment fields `Toolchain`, `Permissions`, `Checkout`,
+  `Session` (an id for direct messages) and `Limits`; an optional "Machines" table in the
+  agent rules snippet (label, model identifier, architecture, memory, GPU, operating
+  system), named by the status file's `Machine` label (PROTOCOL.md 5.5).
+- Optional notification hints (PROTOCOL.md 5.1, item 3): a tool may wake a session when the
+  coordination branch has something new for it. The branch stays the only record: push
+  before notifying, fetch and read before acting, and treat duplicate, lost and reordered
+  hints as normal. `Wake: notification` in the status template.
+- A session that waits for an answer arms its wake-up when its tool can be woken, and a
+  message to a session that cannot be woken also goes as a direct session message or to
+  the owner (PROTOCOL.md 5.5).
+- `send.sh` prints a notice on stderr for each recipient line whose status says it cannot
+  be woken (`Wake:` none or a session-start hook only); stdout and exit statuses are
+  unchanged.
+- `send.sh --result` prints `key: value` lines instead of the bare path:
+  `map-send-result: 1`, `path`, `event` (the message file name without `.md`), `commit`
+  (the coordination commit that added the message), `to` and `type`; readers ignore
+  unknown keys, and `project` is reserved. Without the option the output is unchanged.
+- Runner and watch locks hold a `holder` file naming the program that holds them
+  (`runner.sh`, `watch.sh`, or another tool such as mapc): one word of at least three
+  characters that appears in the holding process's command line. `lock_holder_alive`
+  checks the process against that name, and against the script's own name for a lock
+  without it. Scripts before 2.1.0 ignore the file.
+- `doctor.sh` first checks the session itself: an error when it cannot write the clone's
+  git directory, and a warning when the remote does not answer (not with `--no-fetch`);
+  both point to adapters/codex.md.
+- `status.sh` fills in the environment facts it can detect, marked "(detected by
+  status.sh)": Toolchain (git, the shell, python3 and uv), Checkout (own clone or git
+  worktree) and, in Machine, the operating system and architecture after the label. It
+  writes only into empty, placeholder or earlier detected fields, never a host name, IP
+  address, user name or path; `MAP_STATUS_DETECT=0` turns it off, and it is off for
+  another line's status (when this worktree belongs to another line).
+- `doctor.sh` warns when the checkout is not marked as any line's (no `MAP_LINE`, no
+  `map-line` from `set-line.sh`) and names `scripts/set-line.sh <line>`; a note when
+  `MAP_LINE` and the mark differ.
+
+- CONTRIBUTING.md, issue forms (script bug, protocol question, compatibility report) and
+  a pull-request template; questions go to Discussions. Pull requests are reviewed on the
+  public repository and, when taken, applied in development and credited here.
+
+### Changed
+
+- Joining: run `scripts/set-line.sh <line>` in every checkout a line works in, including
+  desktop-app worktrees and new checkouts after a transfer (adapters/JOIN.md step 7,
+  PROTOCOL.md 5.5); the `map-line` mark is a documented interface.
+
+- adapters/codex.md: the sandbox settings are confirmed with Codex CLI 0.163; a local
+  remote needs `--add-dir` instead of network access; a list of symptoms when a setting
+  is missing.
+
+- README: the intro no longer says that the owner only steps in for decisions.
+- README: the transfer handover is also described as a handoff that outlasts the session,
+  across tools and machines, even with a single agent.
+- README: a new opening in English and Chinese: the problem, a flow picture
+  (docs/images/map-flow.svg), how a feature gets built, what is on the branch, why the
+  rules exist, highlights and a quick start.
+- README: "Roles" and "How agents talk" moved to docs/how-it-works.md (Chinese:
+  docs/how-it-works.zh-CN.md); the Chinese README follows the English structure; the
+  example comes from the demo repository gao-xh/map-demo.
+
 ## 2.0.0 - 2026-10-28
 
 ### Added
