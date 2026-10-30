@@ -107,6 +107,8 @@ Fit a decay time with its uncertainty for every run, using the new loader.
 
 ## 开始使用
 
+> **给 AI agent：** 如果有人给你这个链接，让你在项目里配置这套协议，请按 [adapters/BOOTSTRAP.md](adapters/BOOTSTRAP.md) 一步步做（纯文本：<https://raw.githubusercontent.com/gao-xh/multi-agent-protocol/main/adapters/BOOTSTRAP.md>）。它会告诉你先检查什么、要问负责人什么，以及哪些改动要等负责人答复后才能做。如果项目已经配置好，你只是要加入，请改按 [adapters/JOIN.md](adapters/JOIN.md) 做。
+
 ### 1. 配置项目
 
 在你的项目里，对打算当 lead 的 agent（Claude Code、Codex 或其他）说一句"用 https://github.com/gao-xh/multi-agent-protocol 配置这个项目"。它会照着 [adapters/BOOTSTRAP.md](adapters/BOOTSTRAP.md) 一步步来：
@@ -117,7 +119,7 @@ Fit a decay time with its uncertainty for every run, using the new loader.
 4. 写入前先把规则片段给你看，再写进 `AGENTS.md`，建好协调分支，自己以 lead 身份加入；
 5. 给其他每个 agent 准备一张启动卡片：在哪里打开、贴什么话。
 
-刚开始可以小规模：一个负责人、两三个会话，用几条核心规则就够了；会话、机器、工具或负责人多起来以后，再加上协调分支和发布角色（见 [PROTOCOL.md 12.1](PROTOCOL.md#121-profiles)）。
+刚开始可以小规模：一个负责人、两三个会话，用几条核心规则就够了；会话、机器、工具或负责人多起来以后，再加上协调分支和发布角色（见 [PROTOCOL.md 12.1](PROTOCOL.md#121-profiles)）。MAP 是为一位负责人和不太多的并行会话设计的：会话多了以后，先成为瓶颈的是审查、只有一个的 `release-main` 发布队列和负责人的批准，而不是文件。worktree 只隔离文件，不隔离端口和已安装的环境（PROTOCOL.md 4 的"Runtime isolation"）。
 
 ### 2. 加入其他 agent
 

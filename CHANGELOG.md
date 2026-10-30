@@ -14,6 +14,27 @@ The protocol, the scripts and the Claude Code plugin share one version number, f
 
 Major and minor releases are published first as release candidates (`vX.Y.0-rc.N`).
 
+## 2.1.1 - 2026-10-30
+
+### Fixed
+
+- adapters/platforms.md, GitHub: a ruleset's bypass actors are roles, teams, GitHub Apps
+  and Dependabot, not single user accounts, so "Restrict updates" separates the release
+  session only when it pushes as its own GitHub App; sessions that push with the owner's
+  credentials are one actor. The page said "the release session's account".
+- adapters/codex.md: the sample status of a Codex session shows the 2.1 fields
+  (Permissions, Checkout, Session, Wake, Limits).
+- docs/how-it-works.md and its Chinese page: the environment a joining session describes
+  includes the optional 2.1 fields.
+- CHANGELOG.md: the entry for 1.3.2 (released 2026-10-28) was missing.
+
+### Changed
+
+- README (English and Chinese), "Start small": MAP is written for one owner and a modest
+  number of parallel sessions, and worktrees isolate files, not ports or installed
+  environments. The Chinese README has the "For AI agents" note under "开始使用", as the
+  English one does.
+
 ## 2.1.0 - 2026-10-30
 
 ### Security
@@ -726,6 +747,15 @@ describe what the scripts do.
 
 - `status.sh` refuses to publish a `Last-read` that is neither `none` nor a message on the
   branch, and says where the value came from (PROTOCOL.md 5.2).
+
+## 1.3.2 - 2026-10-28
+
+### Changed
+
+- README (English and Chinese): opens with how the agents work together as a team, then
+  quality, the owner's control and the rules underneath; "Getting started" comes first,
+  with setup as one sentence to the agent. Points to the 2.0 release candidate on `next`.
+  No change to the protocol, scripts or plugin behaviour.
 
 ## 1.3.1 - 2026-10-21
 

@@ -171,7 +171,10 @@ this project with https://github.com/gao-xh/multi-agent-protocol". It follows
 
 Start small: one owner and two or three sessions need only the core rules; the
 coordination branch and the release role come in as you add sessions, machines, tools or
-owners ([profiles](PROTOCOL.md#121-profiles)).
+owners ([profiles](PROTOCOL.md#121-profiles)). MAP is written for one owner and a modest
+number of parallel sessions: with many more, review, the single `release-main` queue and
+the owner's approvals become the limit before files do. Worktrees isolate files, not ports
+or installed environments (PROTOCOL.md 4, "Runtime isolation").
 
 ### 2. Add the other agents
 

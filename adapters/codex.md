@@ -168,9 +168,14 @@ When a Codex session joins (PROTOCOL.md 5.5), its status file could read, for ex
 - Model: <model shown by Codex for this session, or "unknown">
 - Machine: laptop; macOS 26.6
 - Sandbox: workspace-write; network: no (pushes need approval)
+- Permissions: approval on-request, workspace-write; no extra writable roots
+- Checkout: own clone
 - Can run: unit tests
 - Cannot: push to the coordination branch without approval; reach the production server
 - Reachable by: coordination branch only; checks the inbox every 15 minutes (cron)
+- Session: none
+- Wake: timer starts a new run
+- Limits: unknown
 ```
 
 The sandbox and network values matter most: with network off, the session cannot push

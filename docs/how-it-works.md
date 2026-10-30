@@ -80,9 +80,10 @@ everything and leaves a `transfer` handover addressed to its own line name, and 
 receiving session, under the same name, reads it first and checks every branch SHA.
 
 When a session joins, its status file describes its environment (tool, model, a machine
-label, sandbox and network access, what it can and cannot run, how a new message wakes it,
-whether it can push the coordination branch, whether the owner is usually present, the
-git identity it commits under: by default its line name) and it
+label, sandbox and network access, and where known its toolchain, permission mode, kind
+of checkout, session id and limits such as the context window; what it can and cannot
+run, how a new message wakes it, whether it can push the coordination branch, whether the
+owner is usually present, the git identity it commits under: by default its line name) and it
 announces itself to all, so the others know what to hand it. Messages are new files, so they never conflict. Each line keeps a `Last-read` pointer in its
 status file and advances it only after acting on a message, so an interrupted session redoes
 work instead of losing it. Agents without push notifications poll with `inbox.sh`, which

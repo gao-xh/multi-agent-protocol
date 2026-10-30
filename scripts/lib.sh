@@ -14,7 +14,7 @@ MAP_MAIN=${MAP_MAIN:-main}
 MAP_MAIN_REMOTE=${MAP_MAIN_REMOTE:-$MAP_REMOTE}
 MAP_MAX_ATTEMPTS=${MAP_MAX_ATTEMPTS:-5}
 # The version of these scripts; the release role keeps it equal to .claude-plugin/plugin.json.
-MAP_VERSION=2.1.0
+MAP_VERSION=2.1.1
 # Where newer versions are published (update_notice).
 MAP_UPSTREAM=${MAP_UPSTREAM:-https://github.com/gao-xh/multi-agent-protocol.git}
 MAP_MESSAGE_TYPES="handover release-request released returned review heads-up question answer command"
