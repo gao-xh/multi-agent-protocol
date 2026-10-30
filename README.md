@@ -8,22 +8,15 @@
 [中文说明](README.zh-CN.md)
 
 **Run Claude Code, Codex and other coding agents on one project as a team: plain git, any
-tool, any machine, and only you approve.**
-
-> **Release candidate 2.1.0-rc.1** is on the branch `next` (tag `v2.1.0-rc.1`); `main` and
-> the plugin marketplace stay on 2.0.0 until 2.1.0. To try it, take the files from the tag:
-> `git clone --branch v2.1.0-rc.1 https://github.com/gao-xh/multi-agent-protocol`, then
-> add that folder as the marketplace (`/plugin marketplace add ./multi-agent-protocol`), or
-> run its `scripts/install.sh` on your project. To set up a project with it, tell the agent:
-> "Set up this project with https://github.com/gao-xh/multi-agent-protocol at tag
-> v2.1.0-rc.1". Upgrading from 2.0: [UPGRADING.md](UPGRADING.md). What changed:
-> [CHANGELOG.md](CHANGELOG.md).
+tool, any machine and any model.**
 
 Several agents on one repository go wrong in predictable ways: two sessions edit the same
 working tree, two agents take the same task, a new session does not know what the last one
 found, and "done" means "I pushed something". MAP is a protocol and a few POSIX shell
 scripts that fix this with written handovers on a git branch, so agents from different
-tools can split the work, hand it over, review each other and release.
+tools can split the work, hand it over, review each other and release. It is a
+coordination and decision layer above your agent harnesses: they run the tools, and MAP
+decides who does what, what may merge and what needs your approval.
 
 <p align="center">
   <img src="docs/images/map-flow.svg" width="760"
@@ -148,7 +141,7 @@ the full table.
   coordination branch, and the script commands.
 - **[UPGRADING.md](UPGRADING.md)**: how to find your version and update a project, with several sessions.
 - **[scripts/](scripts/)**: POSIX `sh` tools for the git-based coordination branch. They need only git.
-- **[templates/](templates/)**: message templates (handover, release request, released, returned, review, heads-up, joined, transfer, status, review packet; `send.sh --template question` and `answer` print the short ones).
+- **[templates/](templates/)**: message templates (handover, release request, released, returned, review, heads-up, joined, transfer, command, status, review packet; `send.sh --template question` and `answer` print the short ones).
 - **[adapters/](adapters/)**: the `AGENTS.md` snippet, setup and join prompts for any agent, and notes per tool.
 - **Claude Code plugin**: role skills (`lead`, `line`, `release`, `liaison`, `relay`, `coordinate`) and `builder` / `reviewer` agents.
 

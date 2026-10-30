@@ -18,13 +18,14 @@
 # path. MAP_STATUS_DETECT=0 turns this off; it is off too when this worktree belongs to
 # another line (MAP_LINE or set-line.sh), as when a line reports for a builder. A value
 # that ends with the mark is replaced on the next update: remove the mark when you edit it.
+# The coordination fetch and push never prompt and stop after MAP_GIT_SECONDS (default 60).
 set -u
 PROG=status.sh
 # shellcheck source=lib.sh
 . "$(dirname -- "$0")/lib.sh"
 
 case "${1:-}" in
-    -h | --help | "") sed -n '2,21s/^# \{0,1\}//p' "$0"; [ $# -gt 0 ]; exit $? ;;
+    -h | --help | "") sed -n '2,22s/^# \{0,1\}//p' "$0"; [ $# -gt 0 ]; exit $? ;;
 esac
 require_repo
 fetch_coordination

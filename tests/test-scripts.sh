@@ -72,8 +72,13 @@ fi
 chmod u+w "${sandbox_clone}/.git"
 git -C "$sandbox_clone" remote set-url origin "${work}/no-such-remote.git"
 check "doctor warns when the remote does not answer" sh -c "cd '$sandbox_clone' && '$test_shell' '${scripts}/doctor.sh' 2>/dev/null | grep -q \"^WARNING  the remote 'origin' did not answer: no network or no access; see adapters/codex.md section 2\\$\""
+check_status "doctor checks the last fetched copy after the remote did not answer, and exits 0" 0 sh -c "cd '$sandbox_clone' && '$test_shell' '${scripts}/doctor.sh' 2>&1 | grep -q '^doctor.sh: not fetching (the remote did not answer); checking the last fetched copy\$'"
 check "doctor --no-fetch does not contact the remote" sh -c "cd '$sandbox_clone' && '$test_shell' '${scripts}/doctor.sh' --no-fetch && ! '$test_shell' '${scripts}/doctor.sh' --no-fetch | grep -q 'did not answer'"
 
+printf '#!/bin/sh\nsleep 30\n' >"${work}/hanging-ssh"; chmod +x "${work}/hanging-ssh"
+git -C "$sandbox_clone" remote set-url origin "ssh://example.invalid/remote.git"
+check_status "a fetch that never answers stops after MAP_GIT_SECONDS" 2 sh -c "cd '$sandbox_clone' && GIT_SSH_COMMAND='${work}/hanging-ssh' MAP_GIT_SECONDS=1 MAP_FETCH_SECONDS=1 '$test_shell' '${scripts}/inbox.sh' lead 2>'${work}/hang.err'"
+check "the stopped fetch names MAP_GIT_SECONDS" grep -q 'no answer within 1 seconds (MAP_GIT_SECONDS)' "${work}/hang.err"
 # Status files.
 sed -e 's/<line>/lead/' -e 's/<lead \/ line \/ release \/ liaison \/ relay>/lead/' -e 's/<branch>/lead\/demo/' "${repo_root}/templates/status.md" >"${work}/lead-status.md"
 check "lead publishes its status" run status.sh lead "${work}/lead-status.md"
@@ -475,6 +480,33 @@ for bad_holder in 'sle ep' 'sleep;x' 's*' '' 'sl'; do
 done
 rm -f "${holder_lock}/holder"
 check "lock_holder_alive: without a holder file the given name is used" sh -c ". '${scripts}/lib.sh' && lock_holder_alive $reused_pid sleep '$holder_lock' && ! lock_holder_alive $reused_pid runner.sh '$holder_lock'"
+# take_lock (runner.sh, watch.sh): an empty pid is stale only when it stays empty.
+take_dir="${work}/take-test.lock"
+check "take_lock takes a free lock and writes holder and pid" sh -c ". '${scripts}/lib.sh' && take_lock '$take_dir' runner.sh && [ \"\$(cat '${take_dir}/holder')\" = runner.sh ] && [ \"\$(cat '${take_dir}/pid')\" = \$\$ ]"
+rm -rf "$take_dir"; mkdir "$take_dir"; printf 'sleep\n' >"${take_dir}/holder"; printf '%s\n' "$reused_pid" >"${take_dir}/pid"
+check "take_lock leaves a live holder's lock and names its PID" sh -c ". '${scripts}/lib.sh'; take_lock '$take_dir' runner.sh; [ \$? = 1 ] && [ \"\$lock_pid\" = $reused_pid ] && [ \"\$(cat '${take_dir}/pid')\" = $reused_pid ]"
+rm -rf "$take_dir"; mkdir "$take_dir"; printf 'sleep\n' >"${take_dir}/holder"
+(sleep 0.3 2>/dev/null || :; printf '%s\n' "$reused_pid" >"${take_dir}/pid") &
+pid_writer=$!
+check "take_lock waits for an empty pid that a live holder then writes" sh -c ". '${scripts}/lib.sh'; take_lock '$take_dir' runner.sh; [ \$? = 1 ] && [ \"\$(cat '${take_dir}/pid')\" = $reused_pid ]"
+wait "$pid_writer"
+rm -rf "$take_dir"; mkdir "$take_dir"; : >"${take_dir}/pid"
+check "take_lock takes over a pid that stays empty" sh -c ". '${scripts}/lib.sh' && take_lock '$take_dir' runner.sh && [ \"\$(cat '${take_dir}/pid')\" = \$\$ ]"
+rm -rf "$take_dir"; mkdir "$take_dir"; "$test_shell" -c 'echo $$' >"${take_dir}/pid"
+check "take_lock takes over a dead holder's lock and leaves nothing aside" sh -c ". '${scripts}/lib.sh' && take_lock '$take_dir' runner.sh && [ \"\$(cat '${take_dir}/pid')\" = \$\$ ] && ! ls -d '${take_dir}'.stale.* 2>/dev/null"
+rm -rf "$take_dir"
+mkdir "${work}/take-ro"; chmod a-w "${work}/take-ro"
+if (: >"${work}/take-ro/probe") 2>/dev/null; then
+    skip "take_lock in a read-only directory: this user can write it anyway (root?)"
+else
+    check "take_lock returns 2 when it cannot make the lock" sh -c ". '${scripts}/lib.sh'; take_lock '${work}/take-ro/x.lock' runner.sh; [ \$? = 2 ]"
+fi
+chmod u+w "${work}/take-ro"; rm -rf "${work}/take-ro"
+# A lock directory it made but cannot write into (umask 0277) is not taken.
+if [ "$(id -u)" -ne 0 ]; then
+    check "take_lock does not return 0 when it cannot write holder and pid" sh -c ". '${scripts}/lib.sh'; umask 0277; take_lock '$take_dir' runner.sh; [ \$? -ne 0 ]"
+fi
+chmod -R u+w "$take_dir" 2>/dev/null; rm -rf "$take_dir"
 mkdir "$(git rev-parse --git-dir)/map-watch-obs.lock"
 printf '%s\n' "$reused_pid" >"$(git rev-parse --git-dir)/map-watch-obs.lock/pid"
 printf 'sleep\n' >"$(git rev-parse --git-dir)/map-watch-obs.lock/holder"
@@ -830,6 +862,11 @@ git config --worktree user.email "api@example.invalid"
 check "status.sh commits as this worktree's own identity" sh -c "env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL '$test_shell' '${scripts}/status.sh' api '${work}/api-status.md' >/dev/null 2>&1 && git log -1 --format=%an refs/remotes/origin/coordination -- status/api.md | grep -qx api"
 check "doctor accepts a status file committed as its line" sh -c "! '$test_shell' '${scripts}/doctor.sh' | grep -q 'status/api.md last committed'"
 git config --worktree --unset user.name; git config --worktree --unset user.email
+before_identity=$(git rev-parse refs/remotes/origin/coordination)
+check_status "status.sh refuses to commit without an explicit identity" 2 env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL -u GIT_COMMITTER_NAME -u GIT_COMMITTER_EMAIL -u EMAIL "$test_shell" "${scripts}/status.sh" api "${work}/api-status.md"
+env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL -u GIT_COMMITTER_NAME -u GIT_COMMITTER_EMAIL -u EMAIL "$test_shell" "${scripts}/status.sh" api "${work}/api-status.md" >"${work}/identity.out" 2>&1
+check "the refusal names user.email and shows no invented identity" sh -c "grep -q 'no git identity is set here: set user.name and user.email' '${work}/identity.out' && ! grep -qiF '$(hostname | sed 's/\..*//')' '${work}/identity.out' && ! grep -q '@' '${work}/identity.out'"
+check "nothing was pushed without an identity" sh -c "git fetch --quiet origin '+refs/heads/coordination:refs/remotes/origin/coordination' && [ \"\$(git rev-parse refs/remotes/origin/coordination)\" = $before_identity ]"
 cd "${work}/lead" || exit 2
 sed 's/^- Commit author: line (/- Commit author: Owner (/' AGENTS.md >AGENTS.md.new && mv AGENTS.md.new AGENTS.md
 git add AGENTS.md && git commit --quiet -m "rules: commits under the owner's name" && git push --quiet origin main
@@ -926,6 +963,14 @@ check_status "a second runner for the line exits 2" 2 run runner.sh --max-runs 1
 check "the runner writes holder runner.sh into its lock" sh -c "[ \"\$(cat '$(git rev-parse --git-dir)/map-runner-worker.lock/holder')\" = runner.sh ]"
 check "a second runner names the lock and how to clear it" sh -c "'$test_shell' '${scripts}/runner.sh' --max-runs 1 --interval 1 worker -- true 2>&1 | grep -q \"rm -rf '.*map-runner-worker.lock'\""
 check "the first runner has not started the agent yet" test ! -e "${work}/agent-prompts"
+runner_lock="$(git rev-parse --git-dir)/map-runner-stale.lock"
+mkdir "$runner_lock"; : >"${runner_lock}/pid"
+"$test_shell" "${scripts}/runner.sh" --interval 1 stale -- true >/dev/null 2>&1 &
+stale_runner=$!
+sleep 3
+check "a runner takes over a lock whose pid stays empty" sh -c "[ \"\$(cat '${runner_lock}/pid')\" = $stale_runner ] && [ \"\$(cat '${runner_lock}/holder')\" = runner.sh ]"
+kill "$stale_runner" 2>/dev/null; wait "$stale_runner" 2>/dev/null
+check "the runner removes the lock it took over when stopped" test ! -e "$runner_lock"
 printf 'type: handover\nfrom: lead\nto: worker\n\n## Goal\n\nRunner test.\n' >"${work}/to-worker.md"
 (cd "${work}/lead" && run send.sh "${work}/to-worker.md" >/dev/null 2>&1)
 waited=0

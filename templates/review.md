@@ -1,5 +1,5 @@
 type: review
-from: <lead or line>
+from: <lead, line or relay>
 to: <lead, the line whose work was reviewed, or all>
 refs: <request, branch or earlier messages>
 

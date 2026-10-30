@@ -11,7 +11,8 @@
 # Each message is announced once per worktree; more than MAP_WATCH_MAX (default 3) new
 # messages in one round become a single summary line. While announced messages stay
 # unread, a reminder follows every MAP_WATCH_REMIND seconds (default 3600; 0 turns it
-# off). A fetch never prompts and is stopped after MAP_FETCH_SECONDS (default 10).
+# off). A fetch never prompts and is stopped after MAP_FETCH_SECONDS (default 10; the
+# other scripts' fetch and push use MAP_GIT_SECONDS, default 60).
 # Without a line argument (the plugin monitor) it exits 0 silently when no valid line
 # is set, and starts one interval late, after the session-start summary. It also exits
 # 0 when the branch does not exist.
@@ -36,7 +37,7 @@ while [ $# -gt 0 ]; do
         --once) once=1 ;;
         --rounds) [ $# -ge 2 ] || die "--rounds needs a number"; rounds=$2; shift ;;
         --interval) [ $# -ge 2 ] || die "--interval needs a number of seconds"; interval=$2; shift ;;
-        -h | --help) sed -n '2,22s/^# \{0,1\}//p' "$0"; exit 0 ;;
+        -h | --help) sed -n '2,23s/^# \{0,1\}//p' "$0"; exit 0 ;;
         -*) die "unknown option '$1'" ;;
         *) break ;;
     esac
@@ -70,30 +71,16 @@ fi
 # watcher's PID and the holder's name; it is stale when that process is gone or no longer
 # runs the program that holder names (watch.sh without the file).
 lock="$(git rev-parse --git-dir)/map-watch-${line}.lock"
-take_lock() {
-    mkdir "$lock" 2>/dev/null || return 1
-    printf 'watch.sh\n' >"${lock}/holder"
-    printf '%s\n' "$$" >"${lock}/pid"
-}
 locked=0
-for _ in 1 2 3; do
-    if take_lock; then
-        locked=1
-        break
-    fi
-    [ -d "$lock" ] || break
-    holder=$(cat "${lock}/pid" 2>/dev/null)
-    # A watcher that has just made the directory may not have written its PID yet.
-    [ -n "$holder" ] || { sleep 1; holder=$(cat "${lock}/pid" 2>/dev/null); }
-    # A live PID that no longer runs watch.sh was reused by another program: stale.
-    if [ -n "$holder" ] && lock_holder_alive "$holder" watch.sh "$lock"; then
+take_lock "$lock" watch.sh
+case $? in
+    0) locked=1 ;;
+    1)
         printf 'Multi-Agent Protocol: another session already watches line %s in this worktree (PID %s); this watcher exits. Only that session acts as line %s here; if no session watches it, remove the lock: rm -rf '"'"'%s'"'"'\n' \
-            "$line" "$holder" "$line" "$lock"
+            "$line" "${lock_pid:-unknown}" "$line" "$lock"
         exit 0
-    fi
-    # Stale: move it aside first (atomic), so that two watchers never both remove it.
-    mv "$lock" "${lock}.stale.$$" 2>/dev/null && rm -rf "${lock}.stale.$$"
-done
+        ;;
+esac
 if [ "$locked" -eq 1 ]; then
     trap 'rm -rf "$lock"' EXIT
     trap 'rm -rf "$lock"; exit 130' HUP INT TERM

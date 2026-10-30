@@ -41,6 +41,8 @@
 # holder's PID) and holder (the holder program's name, "runner.sh"; another program that
 # takes the lock, such as mapc, writes a distinctive word that appears in its own command
 # line, ps -o args; scripts before 2.1.0 ignore the file and see such a lock as stale).
+# Its own fetch and push (--progress) never prompt and stop after MAP_FETCH_SECONDS
+# (default 10); the scripts the agent runs use MAP_GIT_SECONDS (default 60).
 # Stop it with Ctrl-C or by killing its PID; it stops a running agent first.
 set -u
 PROG=runner.sh
@@ -68,7 +70,7 @@ while [ $# -gt 0 ]; do
         --allow-flag) [ $# -ge 2 ] || die "--allow-flag needs the agent's option"; allow_flag=$2; shift ;;
         --progress) [ $# -ge 2 ] || die "--progress needs a number of seconds"; progress=$2; shift ;;
         --wake-on-all) wake_on_all=1 ;;
-        -h | --help) sed -n '2,44s/^# \{0,1\}//p' "$0"; exit 0 ;;
+        -h | --help) sed -n '2,46s/^# \{0,1\}//p' "$0"; exit 0 ;;
         -*) die "unknown option '$1'" ;;
         *) [ -z "$line" ] || die "usage: runner.sh [options] <line> -- <agent command...>"; line=$1 ;;
     esac
@@ -84,6 +86,8 @@ if [ -n "$prompt_file" ]; then
     [ -f "$prompt_file" ] || die "no such file: ${prompt_file}"
 fi
 require_repo
+# The progress commits carry this session's identity: never one git invents.
+[ "$progress" -eq 0 ] || require_identity
 git_dir=$(git rev-parse --git-dir)
 log="${git_dir}/map-runner-${line}.log"
 used="${git_dir}/map-runner-${line}.commands"
@@ -94,16 +98,11 @@ fetch_seconds=${MAP_FETCH_SECONDS:-10}
 # One runner per line and worktree: the lock holds the runner's PID and the holder's
 # name; stale when the PID is gone or no longer runs that program (a reused PID).
 lock="${git_dir}/map-runner-${line}.lock"
-if ! mkdir "$lock" 2>/dev/null; then
-    holder=$(cat "${lock}/pid" 2>/dev/null)
-    if [ -n "$holder" ] && lock_holder_alive "$holder" runner.sh "$lock"; then
-        die "a runner for line ${line} already runs in this worktree (PID ${holder}, lock ${lock}); if no runner runs, remove the lock: rm -rf '${lock}'"
-    fi
-    rm -rf "$lock"
-    mkdir "$lock" 2>/dev/null || die "cannot take the runner lock ${lock}"
-fi
-printf 'runner.sh\n' >"${lock}/holder"
-printf '%s\n' "$$" >"${lock}/pid"
+take_lock "$lock" runner.sh
+case $? in
+    1) die "a runner for line ${line} already runs in this worktree (PID ${lock_pid:-unknown}, lock ${lock}); if no runner runs, remove the lock: rm -rf '${lock}'" ;;
+    2) die "cannot take the runner lock ${lock}" ;;
+esac
 agent=""
 watcher=""
 notice_file="${git_dir}/map-runner-${line}.notice"
@@ -308,9 +307,9 @@ publish_progress() {
         progress_parent=$(git rev-parse --verify --quiet "refs/map/progress/${line}") || progress_parent=""
     fi
     if [ -n "$progress_parent" ]; then
-        commit=$(git commit-tree "$tree" -p "$progress_parent" -m "chore: progress of ${line}, run ${runs}") || return 1
+        commit=$(git -c user.useConfigOnly=true commit-tree "$tree" -p "$progress_parent" -m "chore: progress of ${line}, run ${runs}") || return 1
     else
-        commit=$(git commit-tree "$tree" -m "chore: progress of ${line}, run ${runs}") || return 1
+        commit=$(git -c user.useConfigOnly=true commit-tree "$tree" -m "chore: progress of ${line}, run ${runs}") || return 1
     fi
     if quiet_git "$fetch_seconds" /dev/null push --quiet "$MAP_REMOTE" "${commit}:refs/heads/${line}/progress"; then
         progress_parent=$commit

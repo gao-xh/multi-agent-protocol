@@ -14,6 +14,46 @@ The protocol, the scripts and the Claude Code plugin share one version number, f
 
 Major and minor releases are published first as release candidates (`vX.Y.0-rc.N`).
 
+## 2.1.0 - 2026-10-30
+
+### Security
+
+- The coordination scripts (`publish_change` in `lib.sh`, `runner.sh --progress`,
+  `init-coordination.sh`) refuse to commit unless git has an explicit identity (user.name
+  and user.email, or the `GIT_AUTHOR_*` and `GIT_COMMITTER_*` variables); git would
+  otherwise invent one from the computer's user and host names and the scripts would push
+  it (overnight review P1 1). Both user.name and user.email must be set; user.email or
+  `EMAIL` alone is refused (UPGRADING.md).
+
+### Changed
+
+- Documentation follows the 2.1 rules: the coordinate, lead and line skills arm a wake-up
+  while waiting and mark checkouts; adapters/JOIN.md asks for the optional environment
+  fields; BOOTSTRAP.md offers the Machines table; the Machines table moved below the role
+  approval setting, with its own approval setting and a "Hardware model" column.
+- PROTOCOL.md 5.5: the new environment fields are marked optional, and telling a session
+  that cannot be woken is a SHOULD; 5.7 marks a fresh checkout after a transfer.
+- UPGRADING.md: upgrading to 2.1 changes the agent rules block, so the owner is asked;
+  copy the new status lines first; no references to the unpublished versions 1.4 and 1.6.
+
+### Fixed
+
+- `runner.sh` takes over a stale lock as `watch.sh` does, through the new `take_lock` in
+  `lib.sh`: an empty pid counts as stale only when it stays empty for a second, and the
+  lock is moved aside atomically instead of removed and recreated, so two runners never
+  both run a line (overnight review P1 2).
+- `watch.sh` and `runner.sh` put a lock back when another process took it between the
+  check and the move aside (overnight review P2 3).
+- The fetch and the push of the coordination branch run without prompts and stop after
+  `MAP_GIT_SECONDS` (default 60), so a headless agent no longer hangs on a credential
+  prompt (overnight review P2 4). A session that answered such a prompt by hand (HTTPS
+  without a credential helper, an ssh key that asks for its passphrase without an agent)
+  now gets an error: set up a credential helper or ssh-agent (UPGRADING.md).
+- `doctor.sh` stops fetching after "the remote did not answer" and checks the last
+  fetched copy, as its header says (overnight review P2 5).
+- `adapters/remote.md`: the paragraph on stale locks no longer interrupts the sentence on
+  services (overnight review P2 9).
+
 ## 2.1.0-rc.1 - 2026-10-29
 
 ### Added

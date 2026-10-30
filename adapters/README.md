@@ -65,11 +65,12 @@ An agent learns about new messages in one of three ways, best first:
 **What to write in the status file's `Wake` field** (PROTOCOL.md 5.5), starting from the
 table and confirming it in the session: `monitor` for Claude Code with the plugin and a
 line name set; `background task` where the agent runs `watch.sh --once` as a task it owns
-and re-arms it (Cursor, Gemini CLI: unconfirmed); `session-start hook only` for Codex,
+and re-arms it (Cursor: unconfirmed); `session-start hook only` for Codex,
 GitHub Copilot, Qwen Code and Kimi Code without a wake-up; `timer starts a new run` when a
 cron job runs `inbox.sh` and a headless run; `runner` when `scripts/runner.sh` starts a
 headless run for each batch of new messages (any agent with a headless mode in the last
-column; adapters/modes.md, mode 15); `none` otherwise.
+column; adapters/modes.md, mode 15); `notification` when a tested tool sends notification
+hints (PROTOCOL.md 5.1 item 3; name the tool and mode); `none` otherwise.
 
 ## 3. Pushing: who can maintain the coordination branch
 

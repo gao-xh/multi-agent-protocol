@@ -17,7 +17,7 @@ The first setup decides everything about the project once; agents that join late
 configure only themselves (adapters/JOIN.md). Answer me in the language I write in.
 
 1. Use one release for everything: the tag or branch I gave you (for example
-   `v2.0.0-rc.3` or `next`), or `main` (the stable release) if I gave none. Never mix
+   `v2.1.0-rc.1` or `next`), or `main` (the stable release) if I gave none. Never mix
    files of two releases. Read
    https://raw.githubusercontent.com/gao-xh/multi-agent-protocol/<release>/PROTOCOL.md
    in full, and adapters/modes.md from the same place. If you cannot browse, clone it
@@ -90,6 +90,8 @@ configure only themselves (adapters/JOIN.md). Answer me in the language I write 
       adapters/compact-rules.md. Who is the lead, who advances the main
       branch, and whether a liaison session is useful (PROTOCOL.md 3.4: the owner's
       contact when the lead is out of reach, for example on a phone).
+      Optionally, a "Machines" table (one row per machine label: hardware model,
+      architecture, memory, GPU, operating system; no host names or serial numbers).
    4. Standing authorizations to grant now, with scope and exclusions, starting from the
       mode's "approvals to ask for up front" (PROTOCOL.md 3.3).
    5. Checks before a release request (the commands you found), and the release command.

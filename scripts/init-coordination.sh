@@ -55,7 +55,8 @@ root_tree=$(
     } | git mktree
 ) || die "cannot write the root tree"
 
-commit=$(git commit-tree "$root_tree" -m "chore: initialize coordination branch") || die "cannot create the commit"
+require_identity
+commit=$(git -c user.useConfigOnly=true commit-tree "$root_tree" -m "chore: initialize coordination branch") || die "cannot create the commit"
 git push --quiet "$MAP_REMOTE" "${commit}:refs/heads/${MAP_BRANCH}" || die "push to '${MAP_REMOTE}' failed"
 fetch_coordination
 note "created '${MAP_BRANCH}' on '${MAP_REMOTE}' at ${commit}"

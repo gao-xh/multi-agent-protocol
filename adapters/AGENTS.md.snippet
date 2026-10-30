@@ -31,7 +31,8 @@ Short version (the protocol wins if this summary disagrees):
 - To join this project, follow `adapters/JOIN.md` next to the protocol above: it finds your
   line, sets you up and registers you. Describe your environment in your status file
   (tool, model, machine label, sandbox and network, what you can run) and send the
-  `joined` heads-up; no host names, IP addresses or secrets.
+  `joined` heads-up; no host names, IP addresses or secrets. Mark each checkout you work
+  in with `scripts/set-line.sh <line>`, and keep a wake-up armed while you wait for an answer.
 - Moving this line to another agent or machine: commit and push everything, send the
   `transfer` handover to your own line name, then end the session (PROTOCOL.md 5.7).
 - "Done" means a pushed commit SHA plus the checks you actually ran and their results.
@@ -85,19 +86,22 @@ file (`Role: release`), so messages to that role still arrive. Only the session 
 the release role's work advances `MAIN_BRANCH`, and parallel release sessions take turns
 with the claim `release-main`.
 
-#### Machines (optional)
-
-| Label | Model identifier | Architecture | Memory | GPU | Operating system |
-| --- | --- | --- | --- | --- | --- |
-| <e.g. laptop> | <e.g. Mac16,1> | <arm64 / x86_64> | <e.g. 32 GB> | <none / e.g. RTX 4090> | <e.g. macOS 26.6> |
-
-Status files name the label (`Machine:`). No host names, IP addresses, user names, serial
-numbers or hardware UUIDs.
 
 - Changes to roles, permissions and message types are approved: <through the lead (default:
   any session proposes to the lead, the lead asks the owner) | owner only | delegated to the
   lead within the standing authorization of <date>> (PROTOCOL.md 2.2); a new row in the
   role table always needs the owner (PROTOCOL.md 5.5)
+
+#### Machines (optional)
+
+Changes to this table: <the lead, without asking (it records facts, not permissions) | like the rest of this section>.
+
+| Label | Hardware model | Architecture | Memory | GPU | Operating system |
+| --- | --- | --- | --- | --- | --- |
+| <e.g. laptop> | <e.g. Mac16,1> | <arm64 / x86_64> | <e.g. 32 GB> | <none / e.g. RTX 4090> | <e.g. macOS 26.6> |
+
+Status files name the label (`Machine:`). No host names, IP addresses, user names, serial
+numbers or hardware UUIDs.
 
 #### Message types this project adds (PROTOCOL.md 5.4)
 

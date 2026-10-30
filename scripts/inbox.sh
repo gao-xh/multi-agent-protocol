@@ -8,6 +8,7 @@
 #               later message of the same sender corrects (corrects: header) and those
 #               another session has claimed (msg-<message name>, PROTOCOL.md 2.1, 5.6)
 #   --no-fetch  use the last fetched copy of the coordination branch
+# The coordination fetch and push never prompt and stop after MAP_GIT_SECONDS (default 60).
 # Exit status: 0 when there are unread messages, 1 when there are none, 2 on error.
 set -u
 PROG=inbox.sh
@@ -20,7 +21,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --show) show=1 ;;
         --no-fetch) fetch=0 ;;
-        -h | --help) sed -n '2,10s/^# \{0,1\}//p' "$0"; exit 0 ;;
+        -h | --help) sed -n '2,12s/^# \{0,1\}//p' "$0"; exit 0 ;;
         -*) die "unknown option '$1'" ;;
         *) break ;;
     esac

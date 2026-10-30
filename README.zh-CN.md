@@ -2,11 +2,9 @@
 
 [English](README.md) · [Changelog](CHANGELOG.md)
 
-**让 Claude Code、Codex 等编程 agent 组成一个团队，一起开发同一个项目：只用 git，不挑工具和机器，最后由你拍板。**
+**让 Claude Code、Codex 等编程 agent 组成一个团队，一起开发同一个项目：只用 git，任何工具、任何机器、任何模型。**
 
-> **候选版 2.1.0-rc.1** 在 `next` 分支（tag `v2.1.0-rc.1`）；正式版 2.1.0 发布前，`main` 和插件市场仍是 2.0.0。想试用：`git clone --branch v2.1.0-rc.1 https://github.com/gao-xh/multi-agent-protocol`，再把这个文件夹添加为插件市场（`/plugin marketplace add ./multi-agent-protocol`），或者用其中的 `scripts/install.sh` 装进你的项目；用它配置项目时，对 agent 说："用 https://github.com/gao-xh/multi-agent-protocol 的 tag v2.1.0-rc.1 配置这个项目"。从 2.0 升级见 [UPGRADING.md](UPGRADING.md)，改了什么见 [CHANGELOG.md](CHANGELOG.md)。
-
-在同一个仓库里同时跑几个 agent，翻车的方式就那么几种：两个会话改同一个工作目录，两个 agent 抢着做同一件事，新开的会话不知道上一个会话查到了什么，所谓"做完了"其实只是"推了点代码"。MAP 是一套协议加几个 POSIX shell 脚本：agent 之间通过 git 分支上的书面交接单协作，不同工具里的 agent 因此可以分工、交接、互相审查，再一起发布。
+在同一个仓库里同时跑几个 agent，翻车的方式就那么几种：两个会话改同一个工作目录，两个 agent 抢着做同一件事，新开的会话不知道上一个会话查到了什么，所谓"做完了"其实只是"推了点代码"。MAP 是一套协议加几个 POSIX shell 脚本：agent 之间通过 git 分支上的书面交接单协作，不同工具里的 agent 因此可以分工、交接、互相审查，再一起发布。它是架在各个 agent harness 之上的协调和决策层：工具由 harness 去跑，谁做什么、什么能合并、什么要你批准，由 MAP 来定。
 
 <p align="center">
   <img src="docs/images/map-flow.svg" width="760"
@@ -123,7 +121,7 @@ Fit a decay time with its uncertainty for every run, using the new loader.
 
 ### 2. 加入其他 agent
 
-在项目的工作目录里打开每个 agent，对它说"加入这个项目"（已经知道它负责哪条线的话，就加一句"作为 `api` 线"）。lead 写进 `AGENTS.md` 的规则会引导它去读 [adapters/JOIN.md](adapters/JOIN.md)，它会照着做：读取项目设置、检查自己的环境、只配置它自己，然后向团队报到，通常不用问你任何问题。每个 agent 在哪里打开，lead 给的启动卡片上都写着。角色表里还没有的 agent，要经你批准才能加入。以后想改某项设置，把 [adapters/CHANGE.md](adapters/CHANGE.md) 交给 lead 就行。
+在每个 agent 自己的 checkout（工作目录）里打开它，对它说"加入这个项目"（已经知道它负责哪条线的话，就加一句"作为 `api` 线"）。lead 写进 `AGENTS.md` 的规则会引导它去读 [adapters/JOIN.md](adapters/JOIN.md)，它会照着做：读取项目设置、检查自己的环境、只配置它自己，然后向团队报到，通常不用问你任何问题。每个 agent 在哪里打开，lead 给的启动卡片上都写着。角色表里还没有的 agent，要经你批准才能加入。以后想改某项设置，把 [adapters/CHANGE.md](adapters/CHANGE.md) 交给 lead 就行。
 
 ### 3. Claude Code 插件（可选）
 

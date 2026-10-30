@@ -40,7 +40,8 @@ Start of session, as line `<line>` (PROTOCOL.md 5.3):
 2. `$S/inbox.sh --show <line>`: handle each message in order; after each one, `$S/mark-read.sh <line> <message>`.
 3. `$S/status.sh --all` and `$S/status.sh --claims`: who is doing what.
 4. Publish your own status if it changed.
-5. If `$S/set-line.sh` prints nothing, offer the user to store this worktree's line name, so that later sessions here start with a summary.
+5. If `$S/set-line.sh` prints nothing, mark this checkout: `$S/set-line.sh <line>` (PROTOCOL.md 5.5 asks every line to mark every checkout it works in, so later sessions start with a summary and tools can find it).
+6. Before you end a turn while you wait for an answer (a `handover`, `question` or `release-request` you sent), arm your wake-up: the monitor, or `$S/watch.sh --once <line>` as a background task that you re-arm after each message (PROTOCOL.md 5.5). When `$S/send.sh` prints "cannot be woken" for a recipient, also tell that session directly where your tool can reach it, or tell the owner that the message waits there.
 
 
 Writing messages:

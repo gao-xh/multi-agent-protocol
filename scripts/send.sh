@@ -23,6 +23,7 @@
 # A message that looks like it contains a private key or an access token (GitHub,
 # Anthropic, OpenAI, AWS, Google, Slack, npm) is refused with exit status 1; --allow-secret sends it anyway,
 # for a value that is not a secret (an example or a test value).
+# The coordination fetch and push never prompt and stop after MAP_GIT_SECONDS (default 60).
 set -u
 PROG=send.sh
 # shellcheck source=lib.sh
@@ -38,7 +39,7 @@ is_message_type() {
 }
 
 case "${1:-}" in
-    -h | --help | "") sed -n '2,25s/^# \{0,1\}//p' "$0"; [ $# -gt 0 ]; exit $? ;;
+    -h | --help | "") sed -n '2,26s/^# \{0,1\}//p' "$0"; [ $# -gt 0 ]; exit $? ;;
     --template)
         [ $# -eq 2 ] || die "usage: send.sh --template <type>"
         case "$2" in

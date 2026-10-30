@@ -6,10 +6,11 @@
 # UPGRADING.md: MAP_UPSTREAM, MAP_UPDATE_SECONDS, MAP_UPDATE_CHECK=0); not with --no-fetch.
 # First it checks this session: an ERROR when it cannot write the clone's git directory
 # (then it does not fetch and checks the last fetched copy), and (not with --no-fetch) a
-# WARNING when the remote does not answer within MAP_FETCH_SECONDS (default 10); both
-# point to adapters/codex.md (sandbox settings). A WARNING when this checkout is not
-# marked as any line's (no MAP_LINE, no map-line from set-line.sh), and a NOTE when
-# MAP_LINE and the mark name different lines (MAP_LINE wins) (PROTOCOL.md 5.5).
+# WARNING when the remote does not answer within MAP_FETCH_SECONDS (default 10), and then
+# no more fetches or remote checks; both point to adapters/codex.md (sandbox settings).
+# A WARNING when this checkout is not marked as any line's (no MAP_LINE, no map-line from
+# set-line.sh), and a NOTE when MAP_LINE and the mark name different lines (MAP_LINE
+# wins) (PROTOCOL.md 5.5).
 # Usage: doctor.sh [--no-fetch]
 # Exit status: 0 when there are no errors (warnings allowed), 1 on errors, 2 if it cannot run.
 set -u
@@ -46,6 +47,8 @@ done
 if [ "$fetch" -eq 1 ] &&
     ! quiet_git "${MAP_FETCH_SECONDS:-10}" /dev/null ls-remote --heads "$MAP_REMOTE" "$MAP_BRANCH"; then
     warn "the remote '${MAP_REMOTE}' did not answer: no network or no access; see adapters/codex.md section 2"
+    note "not fetching (the remote did not answer); checking the last fetched copy"
+    fetch=0
 fi
 # The checkout's line mark (PROTOCOL.md 5.5, "Marking checkouts").
 line_mark=$(head -n 1 "$(git rev-parse --git-dir)/map-line" 2>/dev/null | tr -d '\r')

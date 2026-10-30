@@ -6,14 +6,14 @@
   `PROTOCOL.md` (`tools/multi-agent-protocol/VERSION` by default).
 - Each session: the `Protocol:` field of its status file, which `status.sh` fills in.
 - Claude Code plugin: `/plugin`, Installed.
-- Agent rules file: the begin marker of the block, `multi-agent-protocol: begin v1.4`
-  (blocks written before 1.4 have no version).
+- Agent rules file: the begin marker of the block, `multi-agent-protocol: begin v2.1`
+  (blocks written before 2.0 have no version).
 
-From 1.4 on, `session-start.sh` and `doctor.sh` print one line when a newer release exists
+From 2.0 on, `session-start.sh` and `doctor.sh` print one line when a newer release exists
 (one `git ls-remote` of the public repository, stopped after `MAP_UPDATE_SECONDS`, default
 5; set `MAP_UPSTREAM` to use another repository, or `MAP_UPDATE_CHECK=0` to turn the check
 off; `doctor.sh --no-fetch` skips it). `doctor.sh` also warns when sessions report
-different versions, and lists sessions on scripts before 1.4, which report none.
+different versions, and lists sessions on scripts before 2.0, which report none.
 
 ## Update
 
@@ -26,7 +26,7 @@ changes.
 1. A session sees the notice (or the owner asks). The lead runs
    `scripts/upgrade.sh --check <your-project>`: it prints the version of the project's
    copy, the newest release and its commit, the CHANGELOG sections in between, and whether
-   the agent rules block changes. Copies before 1.6 have no `upgrade.sh`: clone the
+   the agent rules block changes. Copies before 2.0 have no `upgrade.sh`: clone the
    protocol repository anywhere and run its `scripts/upgrade.sh --check <your-project>`.
 2. `--check` also says whether the policy covers the release. If it does, the lead goes on
    to step 3 and tells the owner afterwards. Otherwise the lead asks the owner whether to
@@ -83,17 +83,27 @@ plugin marketplace keep the stable release. To try one in a project you can rese
 
 ## Notes for 2.1
 
-Coming from 2.0, nothing must change: every addition is optional. After the upgrade steps
-above:
+Coming from 2.0, nothing must change in how your sessions work: every addition is optional.
+The agent rules block does change (marker `begin v2.1`, an optional "Machines" table), so the
+lead asks the owner before upgrading even under a `patch` or `minor` policy (PROTOCOL.md
+12.3). After the upgrade steps above:
 
 - Run `scripts/set-line.sh <line>` in every checkout a line works in (PROTOCOL.md 5.5),
   including desktop-app worktrees; `scripts/doctor.sh` warns about an unmarked checkout.
-- Fill in the new optional status fields when you next update your status; `status.sh`
-  detects Toolchain, Checkout and the operating system for you.
+- Copy the new lines (Toolchain, Permissions, Checkout, Session, Limits) from
+  `templates/status.md` into your status file first: `status.sh` fills in detected values
+  only in fields the file already has. Then fill in what it cannot detect.
 - A session that waits for an answer arms its wake-up (PROTOCOL.md 5.5); `send.sh` now
   notices recipients that cannot be woken.
 - Tools that write runner or watcher locks (for example map-conductor) need the 2.1
   scripts: older scripts ignore the `holder` file.
+- Set both `user.name` and `user.email` (or the `GIT_AUTHOR_*` and `GIT_COMMITTER_*`
+  variables) in every checkout and container that sends: the scripts refuse to commit
+  under an identity git invents, and `user.email` or `EMAIL` alone is not enough.
+- The coordination fetch and push no longer prompt for credentials and stop after
+  `MAP_GIT_SECONDS` (default 60). If you typed a password or an ssh passphrase at those
+  prompts, set up a credential helper (`git config credential.helper`) or load the key
+  into ssh-agent first.
 
 ## Notes for 2.0
 
@@ -121,7 +131,7 @@ Coming from 1.3, after the upgrade steps above:
 - Patch and minor releases never invalidate an existing coordination branch or existing
   messages, never remove or rename a script, and keep environment variables working.
 - Older scripts tolerate what newer ones add: an unknown message type is a warning in
-  `doctor.sh`, and `inbox.sh` still lists it (from 1.4 on).
+  `doctor.sh`, and `inbox.sh` still lists it (from 2.0 on).
 - A change to the coordination branch layout ships with a migration script.
 - Incompatible changes happen only in a major release, announced one release ahead in
   CHANGELOG.md.

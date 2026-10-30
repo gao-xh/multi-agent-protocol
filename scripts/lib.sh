@@ -14,7 +14,7 @@ MAP_MAIN=${MAP_MAIN:-main}
 MAP_MAIN_REMOTE=${MAP_MAIN_REMOTE:-$MAP_REMOTE}
 MAP_MAX_ATTEMPTS=${MAP_MAX_ATTEMPTS:-5}
 # The version of these scripts; the release role keeps it equal to .claude-plugin/plugin.json.
-MAP_VERSION=2.1.0-rc.1
+MAP_VERSION=2.1.0
 # Where newer versions are published (update_notice).
 MAP_UPSTREAM=${MAP_UPSTREAM:-https://github.com/gao-xh/multi-agent-protocol.git}
 MAP_MESSAGE_TYPES="handover release-request released returned review heads-up question answer command"
@@ -107,6 +107,18 @@ commit_author_policy() {
     case "$(rules_word 'Commit author')" in line) printf 'line\n' ;; owner) printf 'owner\n' ;; esac
 }
 
+# Fail unless git has an explicit identity here (user.name and user.email in its
+# configuration, or the GIT_AUTHOR_* and GIT_COMMITTER_* variables). Otherwise git invents
+# one from this computer's user and host names, and a script would push it. git's own
+# message is not printed: it can show the invented identity.
+require_identity() {
+    if git -c user.useConfigOnly=true var GIT_AUTHOR_IDENT >/dev/null 2>&1 &&
+        git -c user.useConfigOnly=true var GIT_COMMITTER_IDENT >/dev/null 2>&1; then
+        return 0
+    fi
+    die "no git identity is set here: set user.name and user.email (git config user.email <address>), or GIT_AUTHOR_NAME, GIT_AUTHOR_EMAIL, GIT_COMMITTER_NAME and GIT_COMMITTER_EMAIL; git would otherwise invent one from this computer's names"
+}
+
 # The name and the email of a git identity "Name <email> time zone" (git var).
 ident_name() { printf '%s\n' "${1% <*}"; }
 ident_email() {
@@ -167,9 +179,24 @@ coordination_ref() {
     printf 'refs/remotes/%s/%s' "$MAP_REMOTE" "$MAP_BRANCH"
 }
 
+# remote_git <git arguments...>
+# Run git against the remote with nobody there to answer: no prompt, stopped after
+# MAP_GIT_SECONDS (default 60). Sets remote_error to git's error output, or to a note on
+# the timeout, and returns git's exit status (124 after the timeout).
+remote_git() {
+    remote_errors=$(mktemp "${TMPDIR:-/tmp}/map-git.XXXXXX") || die "cannot create a temp file"
+    remote_status=0
+    bounded_git "${MAP_GIT_SECONDS:-60}" /dev/null "$remote_errors" "$@" || remote_status=$?
+    remote_error=$(cat "$remote_errors")
+    rm -f "$remote_errors"
+    [ "$remote_status" -ne 124 ] || remote_error="no answer within ${MAP_GIT_SECONDS:-60} seconds (MAP_GIT_SECONDS), or git asked for credentials"
+    return "$remote_status"
+}
+
 fetch_coordination() {
-    fetch_error=$(git fetch --quiet "$MAP_REMOTE" "+refs/heads/${MAP_BRANCH}:$(coordination_ref)" 2>&1) && return 0
-    git ls-remote --exit-code --heads "$MAP_REMOTE" "$MAP_BRANCH" >/dev/null 2>&1
+    remote_git fetch --quiet "$MAP_REMOTE" "+refs/heads/${MAP_BRANCH}:$(coordination_ref)" && return 0
+    fetch_error=$remote_error
+    quiet_git "${MAP_FETCH_SECONDS:-10}" /dev/null ls-remote --exit-code --heads "$MAP_REMOTE" "$MAP_BRANCH"
     case $? in
         2) die "'${MAP_BRANCH}' does not exist on '${MAP_REMOTE}'; create it with init-coordination.sh" ;;
         *) die "cannot fetch '${MAP_BRANCH}' from '${MAP_REMOTE}': $(printf '%s\n' "$fetch_error" | tail -n 1) (no network, no access, or a sandbox that blocks network?)" ;;
@@ -377,6 +404,41 @@ lock_holder_alive() {
     return 1
 }
 
+# take_lock <lock dir> <holder name>
+# Take a lock directory for this process: it holds the file holder (the program's name,
+# such as watch.sh) and the file pid. A lock is stale when its PID is gone or no longer runs
+# that program; an empty pid is stale only when it stays empty for a second (the holder may
+# have just made the directory). A stale lock is moved aside atomically and then checked
+# again: when it is no longer the lock that was checked (another process took it in
+# between), it is put back. Returns 0 when taken; 1 when a live holder has it (its PID in
+# lock_pid); 2 when the directory cannot be made (an unwritable git directory).
+take_lock() {
+    lock_pid=""
+    for _ in 1 2 3; do
+        if mkdir "$1" 2>/dev/null; then
+            # Taken only when both files are written: another taker may have moved the
+            # directory aside at once.
+            { printf '%s\n' "$2" >"${1}/holder" && printf '%s\n' "$$" >"${1}/pid"; } 2>/dev/null && return 0
+            continue
+        fi
+        [ -d "$1" ] || continue
+        lock_pid=$(cat "${1}/pid" 2>/dev/null)
+        [ -n "$lock_pid" ] || { sleep 1; lock_pid=$(cat "${1}/pid" 2>/dev/null); }
+        if [ -n "$lock_pid" ] && lock_holder_alive "$lock_pid" "$2" "$1"; then
+            return 1
+        fi
+        lock_aside="${1}.stale.$$"
+        mv "$1" "$lock_aside" 2>/dev/null || continue
+        if [ "$(cat "${lock_aside}/pid" 2>/dev/null)" = "$lock_pid" ]; then
+            rm -rf "$lock_aside"
+        elif [ ! -e "$1" ]; then
+            mv "$lock_aside" "$1" 2>/dev/null
+        fi
+    done
+    [ -d "$1" ] && return 1
+    return 2
+}
+
 # Stop a process and its descendants (git's transport helpers), children first.
 stop_tree() {
     for child in $(ps -A -o pid= -o ppid= 2>/dev/null | awk -v parent="$1" '$2 == parent { print $1 }'); do
@@ -394,6 +456,16 @@ quiet_git() {
     git_seconds=$1
     git_output=$2
     shift 2
+    bounded_git "$git_seconds" "$git_output" /dev/null "$@"
+}
+
+# bounded_git <seconds> <output-file> <error-file> <git arguments...>
+# quiet_git, with git's errors written to <error-file>.
+bounded_git() {
+    git_seconds=$1
+    git_output=$2
+    git_errors=$3
+    shift 3
     case "$git_seconds" in "" | *[!0-9]*) git_seconds=5 ;; esac
     # Decimal, also with leading zeros ("08"): shell arithmetic would read them as octal.
     git_seconds=${git_seconds#"${git_seconds%%[!0]*}"}
@@ -407,7 +479,7 @@ quiet_git() {
         fi
         GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never exec git -c core.askPass= -c credential.interactive=never \
             -c http.lowSpeedLimit=1 -c "http.lowSpeedTime=${git_seconds}" "$@"
-    ) </dev/null >"$git_output" 2>/dev/null &
+    ) </dev/null >"$git_output" 2>"$git_errors" &
     git_pid=$!
     # Poll in fifths of a second where sleep takes fractions (GNU, BSD, busybox), so a
     # quick git costs no full second; otherwise in seconds (POSIX).
@@ -515,6 +587,7 @@ publish_change() {
     attempt=1
     # Commit as this session: its identity as git resolves it here (environment, then this
     # worktree's configuration), not the temporary worktree's.
+    require_identity
     author_ident=$(git var GIT_AUTHOR_IDENT 2>/dev/null) || author_ident=""
     committer_ident=$(git var GIT_COMMITTER_IDENT 2>/dev/null) || committer_ident=""
     fetch_coordination
@@ -536,14 +609,15 @@ publish_change() {
         if [ -n "$author_ident" ] && [ -n "$committer_ident" ]; then
             GIT_AUTHOR_NAME=$(ident_name "$author_ident") GIT_AUTHOR_EMAIL=$(ident_email "$author_ident") \
                 GIT_COMMITTER_NAME=$(ident_name "$committer_ident") GIT_COMMITTER_EMAIL=$(ident_email "$committer_ident") \
-                git -C "$MAP_WORKTREE" commit --quiet --no-verify -m "$2" || die "commit failed"
+                git -C "$MAP_WORKTREE" -c user.useConfigOnly=true commit --quiet --no-verify -m "$2" || die "commit failed"
         else
-            git -C "$MAP_WORKTREE" commit --quiet --no-verify -m "$2" || die "commit failed"
+            git -C "$MAP_WORKTREE" -c user.useConfigOnly=true commit --quiet --no-verify -m "$2" || die "commit failed"
         fi
-        if push_error=$(git -C "$MAP_WORKTREE" push --quiet "$MAP_REMOTE" "HEAD:refs/heads/${MAP_BRANCH}" 2>&1); then
+        if remote_git -C "$MAP_WORKTREE" push --quiet "$MAP_REMOTE" "HEAD:refs/heads/${MAP_BRANCH}"; then
             git update-ref "$(coordination_ref)" "$(git -C "$MAP_WORKTREE" rev-parse HEAD)"
             return 0
         fi
+        push_error=$remote_error
         case "$push_error" in
             *rejected* | *"fetch first"* | *non-fast-forward* | *lock*) ;;
             *) die "push to '${MAP_REMOTE}' failed: $(printf '%s\n' "$push_error" | tail -n 1)" ;;

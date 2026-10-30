@@ -2,7 +2,7 @@
 
 Paste the prompt below into the agent that should join, or give it this file's raw link
 in the release the project uses, with its full tag (the `VERSION` file of the project's
-copy, for example `tools/multi-agent-protocol/VERSION`, names it, such as 2.0.0-rc.3):
+copy, for example `tools/multi-agent-protocol/VERSION`, names it, such as 2.1.0-rc.1):
 `https://raw.githubusercontent.com/gao-xh/multi-agent-protocol/v<X.Y.Z or X.Y.Z-rc.N>/adapters/JOIN.md`.
 In a project whose rules block points to adapters/JOIN.md (2.0 and later), "Join this
 project as line <name>." is enough. The
@@ -72,6 +72,10 @@ Answer me in the language I write in.
      label from your row;
    - sandbox and network access; what you can and cannot run (try the project's checks
      from the rules file if they are cheap);
+   - optional, where you can tell: your toolchain (git, sh, the project's runtimes), your
+     permission or approval mode, whether you work in your own clone or a worktree, the
+     session id others can send direct messages to, and your limits (context window,
+     usage limits);
    - how a new message wakes you: start from your tool's row in adapters/README.md and
      confirm it. If your tool can be woken, arm it whenever you wait for an answer
      (PROTOCOL.md 5.5); "none" is only for tools that cannot be woken;
